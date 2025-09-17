@@ -1,0 +1,6 @@
+---
+action_groups:
+  nce:
+    - nce_auth
+    - nce_site
+    - nce_device
