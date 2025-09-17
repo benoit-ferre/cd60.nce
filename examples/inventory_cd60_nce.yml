@@ -1,0 +1,6 @@
+---
+plugin: cd60_nce
+server_url: https://weu.naas.huawei.com:18002
+validate_certs: false
+token: "{{ lookup('env', 'NCE_TOKEN') }}"
+groups_by: ['siteName', 'type', 'status']

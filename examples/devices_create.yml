@@ -1,0 +1,26 @@
+---
+- name: Create devices on iMaster NCE-Campus
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Login and get token
+      cd60.nce.cd60_nce_token:
+        server_url: https://weu.naas.huawei.com:18002
+        username: "admin@ac.branch"
+        password: "Aac@123456"
+      register: login
+
+    - name: Create devices
+      cd60.nce.cd60_nce_devices:
+        operation: create
+        server_url: https://weu.naas.huawei.com:18002
+        token: "{{ login.x_access_token }}"
+        request:
+          request:
+            devices:
+              - name: sw-access-01
+                siteId: fbb684c8-0d37-496f-bafa-4b06d5151e2e
+                esn: 2102354ABC0W9Q000001
+                mgmtIp: 10.10.10.10
+                type: Switch
+                model: S5735-L24P4X-A1
