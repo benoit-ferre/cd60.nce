@@ -1,0 +1,51 @@
+
+---
+- name: Ensure site present (create)
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      address: "66 JiangYun Road"
+      organizationName: "Nanjing Research Center"
+    object:
+      name: "ansible-site-demo"
+      type: ["AP"]
+      description: "created by integration test"
+      latitude: "50"
+      longitude: "111"
+    state: present
+  register: create_res
+
+- name: Ensure site present (update no-op)
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      address: "66 JiangYun Road"
+      organizationName: "Nanjing Research Center"
+    object:
+      name: "ansible-site-demo"
+      type: ["AP"]
+      description: "created by integration test"
+      latitude: "50"
+      longitude: "111"
+    state: present
+  register: update_res
+
+- assert:
+    that:
+      - update_res.changed == false
+
+- name: Ensure site absent (delete)
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      address: "66 JiangYun Road"
+      organizationName: "Nanjing Research Center"
+    object:
+      name: "ansible-site-demo"
+    state: absent

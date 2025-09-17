@@ -1,12 +1,8 @@
-.PHONY: build lint test
 
-COLL_TGZ := cd60-nce.tar.gz
-
-build:
-	ansible-galaxy collection build . -v
-
+.PHONY: lint integration build
 lint:
 	ansible-lint || true
-
-test:
-	ansible-playbook -i localhost, -c local examples/devices_create.yml --check || true
+integration:
+	ANSIBLE_COLLECTIONS_PATHS=./collections ansible-playbook -i tests/integration/inventory tests/integration/site.yml
+build:
+	ansible-galaxy collection build collections/ansible_collections/cd60/nce -f

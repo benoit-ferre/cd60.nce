@@ -1,0 +1,15 @@
+
+---
+- name: Run integration targets
+  hosts: localhost
+  gather_facts: false
+  vars:
+    test_base_uri: "https://weu.naas.huawei.com:18002"
+    test_username: "{{ lookup('env', 'NCE_USERNAME') }}"
+    test_password: "{{ lookup('env', 'NCE_PASSWORD') }}"
+  tasks:
+    - import_tasks: targets/nce_auth/tasks/main.yml
+    - set_fact:
+        nce_token: "{{ nce_auth.token }}"
+    - import_tasks: targets/nce_site/tasks/main.yml
+    - import_tasks: targets/nce_device/tasks/main.yml

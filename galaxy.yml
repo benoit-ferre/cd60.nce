@@ -1,15 +1,8 @@
 namespace: cd60
 name: nce
-version: 0.1.0
+version: 0.2.2
 readme: README.md
-author: Benoit FERRE (with M365 Copilot)
-description: Ansible collection for Huawei iMaster NCE-Campus (tenant view) based on cd60.nce OpenAPI v0.3.4
+authors:
+  - Benoit Ferre <benoit@example.com>
 license: MIT
-repository: https://example.invalid/cd60/nce
-issues: https://example.invalid/cd60/nce/issues
-build_ignore:
-  - tests/
-  - .tox/
-  - .github/
-  - .env
-  - __pycache__/
+description: Ansible collection for Huawei iMaster NCE-Campus (tenant view). Token auth, Sites & Devices, lookup & inventory.

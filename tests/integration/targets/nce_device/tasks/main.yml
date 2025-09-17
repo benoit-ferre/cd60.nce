@@ -1,0 +1,44 @@
+
+---
+- name: Ensure device present (create)
+  cd60.nce.nce_device:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      esn: "AA11BB22CC33"
+    object:
+      name: "ansible-device-demo"
+      esn: "AA11BB22CC33"
+      ip: "10.10.10.50"
+    state: present
+  register: create_dev
+
+- name: Ensure device present (update no-op)
+  cd60.nce.nce_device:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      esn: "AA11BB22CC33"
+    object:
+      name: "ansible-device-demo"
+      esn: "AA11BB22CC33"
+      ip: "10.10.10.50"
+    state: present
+  register: update_dev
+
+- assert:
+    that:
+      - update_dev.changed == false
+
+- name: Ensure device absent (delete)
+  cd60.nce.nce_device:
+    token: "{{ nce_token }}"
+    base_uri: "{{ test_base_uri }}"
+    validate_certs: false
+    selector:
+      esn: "AA11BB22CC33"
+    object:
+      name: "ansible-device-demo"
+    state: absent
