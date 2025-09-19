@@ -19,7 +19,7 @@ options:
     type: str
     required: true
     no_log: true
-  base_url:
+  base_uri:
     description: Base URI for the NCE API (tenant view), e.g. C(https://weu.naas.huawei.com:18002).
     type: str
     required: true
@@ -89,7 +89,7 @@ EXAMPLES = r"""
 - name: Ensure site is present (only fields below are compared/applied)
   cd60_nce_site:
     token: "{{ nce_token }}"
-    base_url: "https://weu.naas.huawei.com:18002"
+    base_uri: "https://weu.naas.huawei.com:18002"
     validate_certs: false
     selector:
       # e.g. match by a business property (do NOT include name here)
@@ -104,7 +104,7 @@ EXAMPLES = r"""
 - name: Re-run with same input (idempotent -> changed=false)
   cd60_nce_site:
     token: "{{ nce_token }}"
-    base_url: "https://weu.naas.huawei.com:18002"
+    base_uri: "https://weu.naas.huawei.com:18002"
     selector:
       city: "Beauvais"
     object:
@@ -117,7 +117,7 @@ EXAMPLES = r"""
 - name: Remove a site by name (fallback when selector empty)
   cd60_nce_site:
     token: "{{ nce_token }}"
-    base_url: "https://weu.naas.huawei.com:18002"
+    base_uri: "https://weu.naas.huawei.com:18002"
     object:
       name: "Site-CD60-Beauvais"
     state: absent
@@ -234,7 +234,7 @@ def subset_diff(current, desired_subset):
 # ------------- HTTP primitives ----------------------------------------------
 
 def _get(module, path, query=None):
-    url = module.params["base_url"].rstrip("/") + path
+    url = module.params["base_uri"].rstrip("/") + path
     if query:
         url += "?" + urlencode(query)
     resp = open_url(
@@ -247,7 +247,7 @@ def _get(module, path, query=None):
     return data and module.from_json(data) or {}
 
 def _post(module, path, payload):
-    url = module.params["base_url"].rstrip("/") + path
+    url = module.params["base_uri"].rstrip("/") + path
     resp = open_url(
         url,
         method="POST",
@@ -259,7 +259,7 @@ def _post(module, path, payload):
     return data and module.from_json(data) or {}
 
 def _put(module, path, payload):
-    url = module.params["base_url"].rstrip("/") + path
+    url = module.params["base_uri"].rstrip("/") + path
     resp = open_url(
         url,
         method="PUT",
@@ -271,7 +271,7 @@ def _put(module, path, payload):
     return data and module.from_json(data) or {}
 
 def _delete(module, path):
-    url = module.params["base_url"].rstrip("/") + path
+    url = module.params["base_uri"].rstrip("/") + path
     try:
         resp = open_url(
             url,
@@ -342,7 +342,7 @@ def _find_site(module, selector, name_fallback, page_size=100):
 def run_module():
     argument_spec = dict(
         token=dict(type="str", required=True, no_log=True),
-        base_url=dict(type="str", required=True),
+        base_uri=dict(type="str", required=True),
         validate_certs=dict(type="bool", default=False),
         selector=dict(type="dict", default={}),
         object=dict(
