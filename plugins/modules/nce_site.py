@@ -205,12 +205,12 @@ def deep_merge(base, overlay):
     # lists & scalars -> overlay wins
     return deepcopy(overlay)
 
-def _normalize_types(x):
+def _deep_copy_for_compare(x):
     """Conservative normalization for stable comparisons."""
     if isinstance(x, list):
-        return [_normalize_types(v) for v in x]
+        return [_deep_copy_for_compare(v) for v in x]
     if isinstance(x, dict):
-        return {k: _normalize_types(v) for k, v in x.items()}
+        return {k: _deep_copy_for_compare(v) for k, v in x.items()}
     return x
 
 def subset_diff(current, desired_subset):
@@ -227,9 +227,9 @@ def subset_diff(current, desired_subset):
                 diff[k] = sub
         return diff if diff else None
     if isinstance(desired_subset, list):
-        return desired_subset if _normalize_types(current) != _normalize_types(desired_subset) else None
+        return desired_subset if _deep_copy_for_compare(current) != _deep_copy_for_compare(desired_subset) else None
     # scalars
-    return desired_subset if _normalize_types(current) != _normalize_types(desired_subset) else None
+    return desired_subset if current != desired_subset else None
 
 # ------------- HTTP primitives ----------------------------------------------
 
