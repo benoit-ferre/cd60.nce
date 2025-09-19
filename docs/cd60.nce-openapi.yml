@@ -570,17 +570,14 @@ components:
           - 'null'
         latitude: &id006
           type:
-          - number
           - string
           - 'null'
         longitude: &id007
           type:
-          - number
           - string
           - 'null'
         longtitude: &id008
           type:
-          - number
           - string
           - 'null'
           description: Historical typo returned by API in some versions
