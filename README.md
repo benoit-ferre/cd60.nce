@@ -233,3 +233,11 @@ make build  # construit l’artifact Galaxy .tar.gz
 
 ## ❓ Support
 Propose des issues/feedbacks dans votre dépôt GitOps interne, ou ouvrez un ticket au pôle Réseau & Automatisation.
+
+
+### Developer tools
+
+To create a single-file text bundle (with the extractor script embedded):
+
+```bash
+make bundle

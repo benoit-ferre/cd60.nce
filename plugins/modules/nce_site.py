@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-
 # (c) 2025 cd60.nce
 # GNU General Public License v3.0+
-
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
+
 DOCUMENTATION = r"""
 module: cd60_nce_site
 short_description: Manage Huawei iMaster NCE-Campus sites (tenant view)
@@ -138,206 +137,18 @@ site:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.urls import open_url
-from ansible.module_utils.six.moves.urllib.parse import urlencode
-from ansible.module_utils.six.moves.urllib.error import HTTPError
+from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
+    get_json, post_json, put_json, delete_json
+)
+from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
+    prune_unset, strip_readonly, deep_merge, subset_diff, READONLY_KEYS
+)
+from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
+    find_by_selector_or_name
+)
 
-# According to Huawei CloudCampus Java guide, site listing uses /controller/campus/v3/sites?pageIndex=...&pageSize=...
-# We keep the collection path here and will always pass pageIndex/pageSize on GET list.
 API_COLLECTION = "/controller/campus/v3/sites"
 
-# ------------- Helpers -------------------------------------------------------
-
-READONLY_KEYS = {
-    "id", "uuid",
-    "createTime", "create_time", "createdAt",
-    "updateTime", "update_time", "updatedAt",
-}
-
-def _headers(token):
-    return {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "X-ACCESS-TOKEN": token,
-    }
-
-def _prune_unset(value):
-    """
-    Remove keys whose value is None (implicit defaults from AnsibleModule).
-    Keep empty lists/dicts if they are explicitly present.
-    """
-    if isinstance(value, dict):
-        out = {}
-        for k, v in value.items():
-            if v is None:
-                continue
-            out[k] = _prune_unset(v)
-        return out
-    if isinstance(value, list):
-        return [_prune_unset(v) for v in value]
-    return value
-
-def strip_readonly(x):
-    if isinstance(x, dict):
-        return {k: strip_readonly(v) for k, v in x.items() if k not in READONLY_KEYS}
-    if isinstance(x, list):
-        return [strip_readonly(v) for v in x]
-    return x
-
-def deep_merge(base, overlay):
-    """
-    Merge overlay into base recursively (overlay wins), without mutating inputs.
-    Useful to avoid overwriting unspecified fields during updates.
-    """
-    from copy import deepcopy
-    if base is None:
-        return deepcopy(overlay)
-    if overlay is None:
-        return deepcopy(base)
-    if isinstance(base, dict) and isinstance(overlay, dict):
-        merged = deepcopy(base)
-        for k, v in overlay.items():
-            if k in merged:
-                merged[k] = deep_merge(merged.get(k), v)
-            else:
-                merged[k] = deepcopy(v)
-        return merged
-    # lists & scalars -> overlay wins
-    return deepcopy(overlay)
-
-def _deep_copy_for_compare(x):
-    """Conservative normalization for stable comparisons."""
-    if isinstance(x, list):
-        return [_deep_copy_for_compare(v) for v in x]
-    if isinstance(x, dict):
-        return {k: _deep_copy_for_compare(v) for k, v in x.items()}
-    return x
-
-def subset_diff(current, desired_subset):
-    """
-    Compute differences only for keys explicitly provided by user (desired_subset),
-    after pruning implicit Nones.
-    """
-    if isinstance(desired_subset, dict):
-        diff = {}
-        cur = current or {}
-        for k, v in desired_subset.items():
-            sub = subset_diff(cur.get(k), v)
-            if sub is not None:
-                diff[k] = sub
-        return diff if diff else None
-    if isinstance(desired_subset, list):
-        return desired_subset if _deep_copy_for_compare(current) != _deep_copy_for_compare(desired_subset) else None
-    # scalars
-    return desired_subset if current != desired_subset else None
-
-# ------------- HTTP primitives ----------------------------------------------
-
-def _get(module, path, query=None):
-    url = module.params["base_uri"].rstrip("/") + path
-    if query:
-        url += "?" + urlencode(query)
-    resp = open_url(
-        url,
-        method="GET",
-        headers=_headers(module.params["token"]),
-        validate_certs=module.params["validate_certs"],
-    )
-    data = resp.read()
-    return data and module.from_json(data) or {}
-
-def _post(module, path, payload):
-    url = module.params["base_uri"].rstrip("/") + path
-    resp = open_url(
-        url,
-        method="POST",
-        headers=_headers(module.params["token"]),
-        validate_certs=module.params["validate_certs"],
-        data=module.jsonify(payload),
-    )
-    data = resp.read()
-    return data and module.from_json(data) or {}
-
-def _put(module, path, payload):
-    url = module.params["base_uri"].rstrip("/") + path
-    resp = open_url(
-        url,
-        method="PUT",
-        headers=_headers(module.params["token"]),
-        validate_certs=module.params["validate_certs"],
-        data=module.jsonify(payload),
-    )
-    data = resp.read()
-    return data and module.from_json(data) or {}
-
-def _delete(module, path):
-    url = module.params["base_uri"].rstrip("/") + path
-    try:
-        resp = open_url(
-            url,
-            method="DELETE",
-            headers=_headers(module.params["token"]),
-            validate_certs=module.params["validate_certs"],
-        )
-        data = resp.read()
-        return data and module.from_json(data) or {}
-    except HTTPError as exc:
-        if getattr(exc, "code", None) == 404:
-            return {}
-        raise
-
-# ------------- Discovery with strict pagination -----------------------------
-
-def _iter_sites(module, base_filters=None, page_size=100, max_pages=1000):
-    """
-    Iterate site pages using strict pageIndex/pageSize until exhaustion.
-    """
-    page_index = 0
-    while page_index < max_pages:
-        query = {"pageIndex": page_index, "pageSize": page_size}
-        if base_filters:
-            query.update(base_filters)
-        res = _get(module, API_COLLECTION, query=query)
-        # Common wrappers: try to extract lists safely
-        items = (
-            (res.get("data") if isinstance(res, dict) else None)
-            or (res.get("list") if isinstance(res, dict) else None)
-            or (res.get("sites") if isinstance(res, dict) else None)
-            or res
-        )
-        if isinstance(items, dict):
-            items = items.get("list") or items.get("data") or items.get("items") or []
-        if not items:
-            break
-        if not isinstance(items, list):
-            items = [items]
-        for it in items:
-            yield it
-        # If fewer than page_size, we're done
-        if len(items) < page_size:
-            break
-        page_index += 1
-
-def _find_site(module, selector, name_fallback, page_size=100):
-    """
-    Find a site by selector (preferred) or by name (fallback),
-    obeying strict pageIndex/pageSize during listing.
-    """
-    base_filters = {}
-    # If selector provided, we don't pass it all as URL filters (not all keys are queryable),
-    # we use it to match client-side. However, name fallback can be sent as a server filter.
-    if not selector and name_fallback:
-        base_filters["name"] = name_fallback
-
-    for it in _iter_sites(module, base_filters=base_filters, page_size=page_size):
-        if selector:
-            if all(it.get(k) == v for k, v in selector.items()):
-                return it
-        elif name_fallback and it.get("name") == name_fallback:
-            return it
-    return None
-
-# ------------- Module logic --------------------------------------------------
 
 def run_module():
     argument_spec = dict(
@@ -367,65 +178,55 @@ def run_module():
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
 
     state = module.params["state"]
-
-    # Neutralize AnsibleModule's implicit None on suboptions
     raw_selector = module.params.get("selector") or {}
     raw_object = module.params.get("object") or {}
-
-    selector = _prune_unset(raw_selector)
-    desired = _prune_unset(raw_object)
-
+    selector = prune_unset(raw_selector)
+    desired = prune_unset(raw_object)
     name = desired.get("name")
 
     if state == "absent":
-        current = _find_site(module, selector, name)
+        current = find_by_selector_or_name(module, API_COLLECTION, selector, name)
         if not current:
             module.exit_json(changed=False)
         if module.check_mode:
-            module.exit_json(changed=True, site=strip_readonly(current))
+            module.exit_json(changed=True, site=strip_readonly(current, READONLY_KEYS))
         site_id = current.get("id")
         if site_id:
-            _delete(module, f"{API_COLLECTION}/{site_id}")
+            delete_json(module, f"{API_COLLECTION}/{site_id}")
         else:
-            _delete(module, API_COLLECTION)  # fallback if API supports delete-by-query
+            delete_json(module, API_COLLECTION)  # fallback if API supports delete-by-query
         module.exit_json(changed=True)
 
     # state == present
     if not name and not selector:
         module.fail_json(msg="At least one of selector or object.name must be provided for state=present.")
 
-    current = _find_site(module, selector, name)
-
+    current = find_by_selector_or_name(module, API_COLLECTION, selector, name)
     if not current:
-        # Create with exactly what user asked (subset only)
         if not name:
             module.fail_json(msg="object.name is required on creation (no existing site found).")
         if module.check_mode:
             module.exit_json(changed=True, diff={"before": {}, "after": desired})
-        created = _post(module, API_COLLECTION, payload=desired)
-        module.exit_json(changed=True, site=strip_readonly(created))
+        created = post_json(module, API_COLLECTION, payload=desired)
+        module.exit_json(changed=True, site=strip_readonly(created, READONLY_KEYS))
 
-    # Already exists -> compare only the provided subset
-    current_stripped = strip_readonly(current)
+    # exists -> compute subset diff
+    current_stripped = strip_readonly(current, READONLY_KEYS)
     diff_subset = subset_diff(current_stripped, desired)
-
     if not diff_subset:
         module.exit_json(changed=False, site=current_stripped)
 
     if module.check_mode:
         module.exit_json(changed=True, diff=diff_subset, site=current_stripped)
 
-    # Merge current + desired subset to avoid overwriting unspecified fields
     payload = deep_merge(current_stripped, desired)
-
-    # Prefer PUT /sites/{id} when available
     site_id = current.get("id")
     if site_id:
-        updated = _put(module, f"{API_COLLECTION}/{site_id}", payload=payload)
+        updated = put_json(module, f"{API_COLLECTION}/{site_id}", payload=payload)
     else:
-        updated = _put(module, API_COLLECTION, payload=payload)
+        updated = put_json(module, API_COLLECTION, payload=payload)
+    module.exit_json(changed=True, diff=diff_subset, site=strip_readonly(updated, READONLY_KEYS))
 
-    module.exit_json(changed=True, diff=diff_subset, site=strip_readonly(updated))
 
 def main():
     run_module()
