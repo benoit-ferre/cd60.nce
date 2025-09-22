@@ -137,14 +137,8 @@ site:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
-    get_json, post_json, put_json, delete_json
-)
 from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
-    prune_unset, strip_readonly, deep_merge, subset_diff, READONLY_KEYS
-)
-from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
-    find_by_selector_or_name
+    ensure_idempotent_state, emit_result
 )
 
 API_COLLECTION = "/controller/campus/v3/sites"
@@ -176,56 +170,15 @@ def run_module():
     )
 
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
-
     state = module.params["state"]
     raw_selector = module.params.get("selector") or {}
     raw_object = module.params.get("object") or {}
-    selector = prune_unset(raw_selector)
-    desired = prune_unset(raw_object)
-    name = desired.get("name")
+    # Delegate idempotency to module_utils
+    result = ensure_idempotent_state(module, API_COLLECTION, selector=raw_selector, desired_object=raw_object, state=state, id_key='id', extract_keys=("data","list","sites","items"))
 
-    if state == "absent":
-        current = find_by_selector_or_name(module, API_COLLECTION, selector, name)
-        if not current:
-            module.exit_json(changed=False)
-        if module.check_mode:
-            module.exit_json(changed=True, site=strip_readonly(current, READONLY_KEYS))
-        site_id = current.get("id")
-        if site_id:
-            delete_json(module, f"{API_COLLECTION}/{site_id}")
-        else:
-            delete_json(module, API_COLLECTION)  # fallback if API supports delete-by-query
-        module.exit_json(changed=True)
+    out = emit_result(module, result, resource_key='site')
 
-    # state == present
-    if not name and not selector:
-        module.fail_json(msg="At least one of selector or object.name must be provided for state=present.")
-
-    current = find_by_selector_or_name(module, API_COLLECTION, selector, name)
-    if not current:
-        if not name:
-            module.fail_json(msg="object.name is required on creation (no existing site found).")
-        if module.check_mode:
-            module.exit_json(changed=True, diff={"before": {}, "after": desired})
-        created = post_json(module, API_COLLECTION, payload=desired)
-        module.exit_json(changed=True, site=strip_readonly(created, READONLY_KEYS))
-
-    # exists -> compute subset diff
-    current_stripped = strip_readonly(current, READONLY_KEYS)
-    diff_subset = subset_diff(current_stripped, desired)
-    if not diff_subset:
-        module.exit_json(changed=False, site=current_stripped)
-
-    if module.check_mode:
-        module.exit_json(changed=True, diff=diff_subset, site=current_stripped)
-
-    payload = deep_merge(current_stripped, desired)
-    site_id = current.get("id")
-    if site_id:
-        updated = put_json(module, f"{API_COLLECTION}/{site_id}", payload=payload)
-    else:
-        updated = put_json(module, API_COLLECTION, payload=payload)
-    module.exit_json(changed=True, diff=diff_subset, site=strip_readonly(updated, READONLY_KEYS))
+    module.exit_json(**out)
 
 
 def main():

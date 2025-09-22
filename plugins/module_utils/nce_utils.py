@@ -70,3 +70,20 @@ def subset_diff(current, desired_subset):
         return desired_subset if _deep_copy_for_compare(current) != _deep_copy_for_compare(desired_subset) else None
     # scalars
     return desired_subset if current != desired_subset else None
+
+def emit_result(module, result, resource_key, extra=None):
+    """
+    Normalize and emit an Ansible module result.
+
+    Keeps only 'changed' and 'diff' from *result* and remaps 'result' -> resource_key.
+    - module: AnsibleModule
+    - result: dict returned by ensure_idempotent_state()
+    - resource_key: name of the top-level key for the sanitized resource (e.g. 'site', 'device')
+    - extra: optional dict merged into the output before exit_json
+    """
+    out = {k: v for k, v in (result or {}).items() if k in ('changed', 'diff')}
+    if (result or {}).get('result') is not None:
+        out[resource_key] = result['result']
+    if extra:
+        out.update(extra)
+    module.exit_json(**out)
