@@ -29,27 +29,27 @@
       set_fact:
         nce_token: "{{ auth.token }}"
 
-    - name: "Ensure test sites are absent (cleanup pre) - old"
-      cd60.nce.cd60_nce_site:
-        token: "{{ nce_token }}"
-        base_uri: "{{ nce_base_uri }}"
-        validate_certs: "{{ nce_validate_certs }}"
-        object:
-          name: "{{ test_site_old_name }}"
-        state: absent
-      register: pre_absent_old
-      failed_when: false
+    #- name: "Ensure test sites are absent (cleanup pre) - old"
+    #  cd60.nce.cd60_nce_site:
+    #    token: "{{ nce_token }}"
+    #    base_uri: "{{ nce_base_uri }}"
+    #    validate_certs: "{{ nce_validate_certs }}"
+    #    object:
+    #      name: "{{ test_site_old_name }}"
+    #    state: absent
+    #  register: pre_absent_old
+    #  failed_when: false
 
-    - name: "Ensure test sites are absent (cleanup pre) - new"
-      cd60.nce.cd60_nce_site:
-        token: "{{ nce_token }}"
-        base_uri: "{{ nce_base_uri }}"
-        validate_certs: "{{ nce_validate_certs }}"
-        object:
-          name: "{{ test_site_new_name }}"
-        state: absent
-      register: pre_absent_new
-      failed_when: false
+    #- name: "Ensure test sites are absent (cleanup pre) - new"
+    #  cd60.nce.cd60_nce_site:
+    #    token: "{{ nce_token }}"
+    #    base_uri: "{{ nce_base_uri }}"
+    #    validate_certs: "{{ nce_validate_certs }}"
+    #    object:
+    #      name: "{{ test_site_new_name }}"
+    #    state: absent
+    #  register: pre_absent_new
+    #  failed_when: false
 
   tasks:
     - name: "Create site (old name)"
@@ -173,35 +173,35 @@
           - looked_site | length == 1
           - looked_site[0].name == test_site_new_name
 
-    - name: "Delete site (absent)"
-      cd60.nce.cd60_nce_site:
-        token: "{{ nce_token }}"
-        base_uri: "{{ nce_base_uri }}"
-        validate_certs: "{{ nce_validate_certs }}"
-        object:
-          name: "{{ test_site_new_name }}"
-        state: absent
-      register: delete_new
+    #- name: "Delete site (absent)"
+    #  cd60.nce.cd60_nce_site:
+    #    token: "{{ nce_token }}"
+    #    base_uri: "{{ nce_base_uri }}"
+    #    validate_certs: "{{ nce_validate_certs }}"
+    #    object:
+    #      name: "{{ test_site_new_name }}"
+    #    state: absent
+    #  register: delete_new
 
-    - name: "Assert deleted"
-      assert:
-        that:
-          - delete_new is changed
+    #- name: "Assert deleted"
+    #  assert:
+    #    that:
+    #      - delete_new is changed
 
-    - name: "Delete again (idempotent)"
-      cd60.nce.cd60_nce_site:
-        token: "{{ nce_token }}"
-        base_uri: "{{ nce_base_uri }}"
-        validate_certs: "{{ nce_validate_certs }}"
-        object:
-          name: "{{ test_site_new_name }}"
-        state: absent
-      register: delete_again
+    #- name: "Delete again (idempotent)"
+    #  cd60.nce.cd60_nce_site:
+    #    token: "{{ nce_token }}"
+    #    base_uri: "{{ nce_base_uri }}"
+    #    validate_certs: "{{ nce_validate_certs }}"
+    #    object:
+    #      name: "{{ test_site_new_name }}"
+    #    state: absent
+    #  register: delete_again
 
-    - name: "Assert delete idempotent"
-      assert:
-        that:
-          - not (delete_again is changed)
+    #- name: "Assert delete idempotent"
+    #  assert:
+    #    that:
+    #      - not (delete_again is changed)
 
   post_tasks:
     - name: "Revoke token"

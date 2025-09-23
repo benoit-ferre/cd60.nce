@@ -19,7 +19,11 @@
 ```bash
 export NCE_BASE_URI="https://weu.naas.huawei.com:18002"
 export NCE_USERNAME="tenant_admin@domain"
+
 export NCE_PASSWORD="••••••"
+read -s -p "NCE Password: " NCE_PASSWORD && export NCE_PASSWORD
+export NCE_PASSWORD=$(< ~/.nce_password)
+
 export NCE_VALIDATE_CERTS="false"
 
 # Optionnel : données de test
