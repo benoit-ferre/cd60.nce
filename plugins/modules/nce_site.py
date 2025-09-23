@@ -3,7 +3,6 @@
 # GNU General Public License v3.0+
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
-
 DOCUMENTATION = r"""
 module: cd60_nce_site
 short_description: Manage Huawei iMaster NCE-Campus sites (tenant view)
@@ -47,7 +46,7 @@ options:
       name:
         description: Site name (default functional identifier).
         type: str
-  required: true
+        required: true
       description:
         description: Free-form description.
         type: str
@@ -84,7 +83,6 @@ options:
 author:
   - cd60.nce
 """
-
 EXAMPLES = r"""
 - name: Ensure site is present (only fields below are compared/applied)
   cd60_nce_site:
@@ -92,7 +90,6 @@ EXAMPLES = r"""
     base_uri: "https://weu.naas.huawei.com:18002"
     validate_certs: false
     selector:
-      # e.g. match by a business property (do NOT include name here)
       city: "Beauvais"
     object:
       name: "Site-CD60-Beauvais"
@@ -100,21 +97,7 @@ EXAMPLES = r"""
       city: "Beauvais"
       country: "FR"
       timezone: "Europe/Paris"
-
-- name: Re-run with same input (idempotent -> changed=false)
-  cd60_nce_site:
-    token: "{{ nce_token }}"
-    base_uri: "https://weu.naas.huawei.com:18002"
-    selector:
-      city: "Beauvais"
-    object:
-      name: "Site-CD60-Beauvais"
-      address: "1 Rue de la Préfecture"
-      city: "Beauvais"
-      country: "FR"
-      timezone: "Europe/Paris"
-
-- name: Remove a site by name (fallback when selector empty)
+- name: Remove a site by name
   cd60_nce_site:
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
@@ -122,7 +105,6 @@ EXAMPLES = r"""
       name: "Site-CD60-Beauvais"
     state: absent
 """
-
 RETURN = r"""
 changed:
   description: Whether any change was made.
@@ -136,9 +118,8 @@ site:
   description: The resulting site payload returned by NCE (when available).
   type: dict
 """
-
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
+from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
     emit_result
 )
 from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
@@ -146,6 +127,22 @@ from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
 )
 
 API_COLLECTION = "/controller/campus/v3/sites"
+
+# Module-specific request builders (URLs + payloads)
+
+def _make_create_request(collection_path, desired):
+    # NCE sites require a batch wrapper even for single create
+    return (collection_path, {"sites": [desired]})
+
+def _make_update_request(collection_path, obj_id, payload):
+    # Default update path uses /{id}
+    if obj_id:
+        return (f"{collection_path}/{obj_id}", payload)
+    return (collection_path, payload)
+
+def _make_delete_request(collection_path, obj_id):
+    # NCE sites deletion on collection with {"ids": [id]}
+    return (collection_path, {"ids": [obj_id]})
 
 
 def run_module():
@@ -172,17 +169,25 @@ def run_module():
         ),
         state=dict(type="str", choices=["present", "absent"], default="present"),
     )
-
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
-
     state = module.params["state"]
     raw_selector = module.params.get("selector") or {}
     raw_object = module.params.get("object") or {}
-    # Delegate idempotency to module_utils
-    result = ensure_idempotent_state(module, API_COLLECTION, selector=raw_selector, desired_object=raw_object, state=state, id_key='id', extract_keys=("data","list","sites","items"))
 
+    result = ensure_idempotent_state(
+        module,
+        API_COLLECTION,
+        selector=raw_selector,
+        desired_object=raw_object,
+        state=state,
+        id_key='id',
+        extract_keys=("data","list","sites","items"),
+        # Hooks required: module controls URL/payload conventions
+        make_create_request=_make_create_request,
+        make_update_request=_make_update_request,
+        make_delete_request=_make_delete_request,
+    )
     out = emit_result(module, result, resource_key='site')
-
     module.exit_json(**out)
 
 
