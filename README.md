@@ -194,26 +194,32 @@ ANSIBLE_HOST_KEY_CHECKING=False ansible -i nce.yml all -m debug -a 'var=nce_devi
 
 ## 🧪 Lancer les tests d’intégration
 
-Les tests sont fournis dans `tests/integration/`. Ils couvrent **auth**, **sites**, et **devices** (create / no-op update / delete).
+This target validates create/update/rename/idempotency/delete for the **site** module.
 
-### Pré‑requis
-- Variables d’environnement :
-  ```bash
-  export NCE_USERNAME="<tenant-username>"
-  export NCE_PASSWORD="<tenant-password>"
-  ```
-- Accès réseau au `base_uri` et éventuels proxys configurés.
+### Prerequisites
 
-### Méthode 1 — via `Makefile`
+Provide the following environment variables before running `ansible-test integration`:
+
+- `NCE_BASE_URI` (e.g. `https://weu.naas.huawei.com:18002`)
+- `NCE_USERNAME` and `NCE_PASSWORD` (tenant credentials)
+- Optional: `NCE_VALIDATE_CERTS` (`true`/`false`)
+- Optional overrides for test data: `NCE_TEST_SITE_OLD`, `NCE_TEST_SITE_NEW`, `NCE_TEST_SITE_CITY`, `NCE_TEST_SITE_TZ`, `NCE_TEST_SITE_ADDR`, `NCE_TEST_SITE_COUNTRY`
+
+### Run
+
+From the **collection root** (where `galaxy.yml` lives), run:
+
 ```bash
-make integration
+ansible-test integration cd60_nce_site -vv --color --python 3.11
 ```
-> Astuce : le make cible définit `ANSIBLE_COLLECTIONS_PATHS=./collections`.
 
-### Méthode 2 — en direct
+You can also run *all* integration tests:
+
 ```bash
-ANSIBLE_COLLECTIONS_PATHS=./collections ansible-playbook -i tests/integration/inventory tests/integration/site.yml
+ansible-test integration --retry-on-error --color -vv
 ```
+
+These tests use the collection's FQCN (`cd60.nce.cd60_nce_site`) and the auth/lookup plugins.
 
 ### Lint et build
 ```bash
