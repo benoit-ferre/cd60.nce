@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# Extracted common utilities from nce_site module (cd60.nce)
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
@@ -57,7 +56,8 @@ def _deep_copy_for_compare(x):
     return x
 
 def subset_diff(current, desired_subset):
-    """Compute differences only for keys explicitly provided by user (desired_subset)."""
+    """Compute differences only for keys explicitly provided by user (desired_subset).
+    Returns a structure of the *desired* values where a difference exists, or None."""
     if isinstance(desired_subset, dict):
         diff = {}
         cur = current or {}
@@ -71,10 +71,42 @@ def subset_diff(current, desired_subset):
     # scalars
     return desired_subset if current != desired_subset else None
 
+def build_before_after(current, desired_subset):
+    """Build a diff structure with explicit 'before' and 'after' restricted to
+    keys the user provided in desired_subset, and only for changed values.
+    Returns None if no change.
+    """
+    def _helper(cur, des):
+        # returns (before, after) or (None, None) if no change
+        if isinstance(des, dict):
+            b, a = {}, {}
+            any_change = False
+            cur = cur or {}
+            for k, v in des.items():
+                cb, ca = _helper(cur.get(k), v)
+                if cb is not None or ca is not None:
+                    b[k] = cb
+                    a[k] = ca
+                    any_change = True
+            if not any_change:
+                return (None, None)
+            return (b, a)
+        if isinstance(des, list):
+            if _deep_copy_for_compare(cur) != _deep_copy_for_compare(des):
+                return (cur, des)
+            return (None, None)
+        # scalars
+        if cur != des:
+            return (cur, des)
+        return (None, None)
+
+    before, after = _helper(current, desired_subset)
+    if before is None and after is None:
+        return None
+    return {"before": before if before is not None else {}, "after": after if after is not None else {}}
 
 def emit_result(module, result, resource_key, extra=None):
     """Normalize and emit an Ansible module result.
-
     Keeps only 'changed' and 'diff' from *result* and remaps 'result' -> resource_key.
     - module: AnsibleModule
     - result: dict returned by ensure_idempotent_state()

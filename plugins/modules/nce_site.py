@@ -111,8 +111,8 @@ changed:
   type: bool
 diff:
   description:
-    - Subset of fields (within C(object)) that differ from the current state.
-    - Only includes fields the user actually provided (after removing implicit Nones).
+    - Before/After structure limited to user-provided keys in C(object).
+    - Only changed keys are included.
   type: dict
 site:
   description: The resulting site payload returned by NCE (when available).

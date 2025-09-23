@@ -7,7 +7,7 @@ from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
     get_json, post_json, put_json, delete_json
 )
 from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
-    prune_unset, strip_readonly, deep_merge, subset_diff, READONLY_KEYS
+    prune_unset, strip_readonly, deep_merge, subset_diff, build_before_after, READONLY_KEYS
 )
 
 def find_by_selector_or_name(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
@@ -106,18 +106,19 @@ def ensure_idempotent_state(module,
         return {"changed": True, "diff": {"before": {}, "after": desired}, "result": strip_readonly(created, readonly_keys), "current": None}
 
     current_stripped = strip_readonly(current, readonly_keys)
-    diff_subset = subset_diff(current_stripped, desired)
-    if not diff_subset:
+    # compute structured before/after diff limited to desired keys
+    diff_struct = build_before_after(current_stripped, desired)
+    if not diff_struct:
         return {"changed": False, "diff": None, "result": current_stripped, "current": current}
 
     if module.check_mode:
-        return {"changed": True, "diff": diff_subset, "result": current_stripped, "current": current}
+        return {"changed": True, "diff": diff_struct, "result": current_stripped, "current": current}
 
     payload = deep_merge(current_stripped, desired)
     obj_id = current.get(id_key)
     upd_path, upd_payload = make_update_request(collection_path, obj_id, payload)
     updated = put_json(module, upd_path, payload=upd_payload)
-    return {"changed": True, "diff": diff_subset, "result": strip_readonly(updated, readonly_keys), "current": current}
+    return {"changed": True, "diff": diff_struct, "result": strip_readonly(updated, readonly_keys), "current": current}
 
 def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
     """Collect all matching items given a selector or (when selector is empty) a name fallback.
