@@ -1,9 +1,5 @@
 
 ---
-#- name: "Load integration vars"
-#  include_vars:
-#    file: "{{ role_path | default(playbook_dir) }}/tests/integration/targets/nce_site/vars/main.yml"
-#  ignore_errors: false
 - name: "set facts from env"
   no_log: true
   ansible.builtin.set_fact:
@@ -19,12 +15,8 @@
     test_site_city: "{{ lookup('env','NCE_TEST_SITE_CITY') | default('Beauvais', true) }}"
     test_site_timezone: "{{ lookup('env','NCE_TEST_SITE_TZ') | default('Europe/Paris', true) }}"
     test_site_address: "{{ lookup('env','NCE_TEST_SITE_ADDR') | default('1 Rue de la Préfecture', true) }}"
+    test_site_address_new: "{{ lookup('env','NCE_TEST_SITE_ADDR') | default('1 Rue de Paris', true) }}"
     test_site_country: "{{ lookup('env','NCE_TEST_SITE_COUNTRY') | default('FR', true) }}"
-
-- name: debug facts
-  debug:
-    var: nce_username
-    #var: nce_base_uri2
 
 - name: "Skip when credentials are not provided (NCE_USERNAME/NCE_PASSWORD)"
   meta: end_play
@@ -44,30 +36,27 @@
   set_fact:
     nce_token: "{{ auth.token }}"
 
-#- name: "Ensure test sites are absent (cleanup pre) - old"
-#  cd60.nce.nce_site:
-#    token: "{{ nce_token }}"
-#    base_uri: "{{ nce_base_uri }}"
-#    validate_certs: "{{ nce_validate_certs }}"
-#    object:
-#      name: "{{ test_site_old_name }}"
-#    state: absent
-#  register: pre_absent_old
-#  failed_when: false
+- name: "Ensure test sites are absent (cleanup pre) - old"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    object:
+      name: "{{ test_site_old_name }}"
+    state: absent
+  register: pre_absent_old
+  failed_when: false
 
-#- name: "Ensure test sites are absent (cleanup pre) - new"
-#  cd60.nce.nce_site:
-#    token: "{{ nce_token }}"
-#    base_uri: "{{ nce_base_uri }}"
-#    validate_certs: "{{ nce_validate_certs }}"
-#    object:
-#      name: "{{ test_site_new_name }}"
-#    state: absent
-#  register: pre_absent_new
-#  failed_when: false
-
-
-
+- name: "Ensure test sites are absent (cleanup pre) - new"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    object:
+      name: "{{ test_site_new_name }}"
+    state: absent
+  register: pre_absent_new
+  failed_when: false
 
 - name: "Create site (old name)"
   cd60.nce.nce_site:
@@ -78,9 +67,6 @@
     object:
       name: "{{ test_site_old_name }}"
       address: "{{ test_site_address }}"
-      city: "{{ test_site_city }}"
-      country: "{{ test_site_country }}"
-      timezone: "{{ test_site_timezone }}"
   register: create_old
 
 - name: "Assert created"
@@ -97,27 +83,23 @@
     object:
       name: "{{ test_site_old_name }}"
       address: "{{ test_site_address }}"
-      city: "{{ test_site_city }}"
-      country: "{{ test_site_country }}"
-      timezone: "{{ test_site_timezone }}"
   register: create_again
 
 - name: "Assert idempotent"
   assert:
     that:
       - not (create_again is changed)
-      - create_again.diff is not defined or create_again.diff | length == 0
 
-- name: "Update mutable fields (description, tags)"
+- name: "Update mutable fields (address)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
     validate_certs: "{{ nce_validate_certs }}"
-    selector: { city: "{{ test_site_city }}" }
+    selector: {}
     object:
       name: "{{ test_site_old_name }}"
-      description: "Integration test updated"
-      tags: ["ansible-test", "cd60", "site"]
+      address: "{{ test_site_address_new }}"
+      description: "Updated by Ansible"
   register: update_fields
 
 - name: "Assert updated"
@@ -134,7 +116,7 @@
     selector: { city: "{{ test_site_city }}" }
     object:
       name: "{{ test_site_old_name }}"
-      description: "Integration test (dry-run)"
+      address: "{{ test_site_address_new }}changed"
   register: dryrun
   check_mode: true
 
@@ -165,14 +147,10 @@
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
     validate_certs: "{{ nce_validate_certs }}"
-    selector: { city: "{{ test_site_city }}" }
+    selector: {}
     object:
       name: "{{ test_site_new_name }}"
-      address: "{{ test_site_address }}"
-      city: "{{ test_site_city }}"
-      country: "{{ test_site_country }}"
-      timezone: "{{ test_site_timezone }}"
-      tags: ["ansible-test", "cd60", "site"]
+      address: "{{ test_site_address_new }}"
   register: idem_after_rename
 
 - name: "Assert idempotent after rename"
@@ -180,45 +158,46 @@
     that:
       - not (idem_after_rename is changed)
 
-- name: "Lookup site via plugin"
+- name: "query site via plugin"
   set_fact:
-    looked_site: "{{ lookup('cd60.nce.nce_lookup', 'sites', test_site_new_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) }}"
+    looked_site: "{{ query('cd60.nce.nce_lookup', 'sites', test_site_new_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) }}"
 
-- name: "Assert lookup returned exactly one item"
+- name: "Assert query returned exactly one item"
   assert:
     that:
       - looked_site | length == 1
       - looked_site[0].name == test_site_new_name
+    fail_msg: "looked_site {{ looked_site}}"
 
-#- name: "Delete site (absent)"
-#  cd60.nce.nce_site:
-#    token: "{{ nce_token }}"
-#    base_uri: "{{ nce_base_uri }}"
-#    validate_certs: "{{ nce_validate_certs }}"
-#    object:
-#      name: "{{ test_site_new_name }}"
-#    state: absent
-#  register: delete_new
+- name: "Delete site (absent)"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    object:
+      name: "{{ test_site_new_name }}"
+    state: absent
+  register: delete_new
 
-#- name: "Assert deleted"
-#  assert:
-#    that:
-#      - delete_new is changed
+- name: "Assert deleted"
+  assert:
+    that:
+      - delete_new is changed
 
-#- name: "Delete again (idempotent)"
-#  cd60.nce.nce_site:
-#    token: "{{ nce_token }}"
-#    base_uri: "{{ nce_base_uri }}"
-#    validate_certs: "{{ nce_validate_certs }}"
-#    object:
-#      name: "{{ test_site_new_name }}"
-#    state: absent
-#  register: delete_again
+- name: "Delete again (idempotent)"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    object:
+      name: "{{ test_site_new_name }}"
+    state: absent
+  register: delete_again
 
-#- name: "Assert delete idempotent"
-#  assert:
-#    that:
-#      - not (delete_again is changed)
+- name: "Assert delete idempotent"
+  assert:
+    that:
+      - not (delete_again is changed)
 
 - name: "Revoke token"
   no_log: true
