@@ -29,7 +29,7 @@ options:
   selector:
     description:
       - Key→value mapping to uniquely identify the target site.
-      - Do not include C(name) here; C(name) belongs under C(object.name).
+      - You may include C(name) in selector for RENAME (old name). The new name is C(object.name).
       - Only keys provided are used; keys with C(None) are ignored.
     type: dict
     required: false
@@ -37,7 +37,7 @@ options:
   object:
     description:
       - Desired properties of the site. Only keys provided here are enforced.
-      - Must include C(name) for creation.
+      - Must include C(name) for ALL operations (present and absent).
       - NOTE: Due to Ansible's argument parsing, unspecified suboptions may appear with C(None).
         The module removes such C(None) keys automatically so they are not sent nor compared.
     type: dict
@@ -47,6 +47,7 @@ options:
       name:
         description: Site name (default functional identifier).
         type: str
+  required: true
       description:
         description: Free-form description.
         type: str
@@ -137,8 +138,11 @@ site:
 """
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
-    ensure_idempotent_state, emit_result
+from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
+    emit_result
+)
+from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
+    ensure_idempotent_state
 )
 
 API_COLLECTION = "/controller/campus/v3/sites"
@@ -154,7 +158,7 @@ def run_module():
             type="dict",
             default={},
             options=dict(
-                name=dict(type="str"),
+                name=dict(type="str", required=True),
                 description=dict(type="str"),
                 address=dict(type="str"),
                 city=dict(type="str"),
@@ -170,6 +174,7 @@ def run_module():
     )
 
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
+
     state = module.params["state"]
     raw_selector = module.params.get("selector") or {}
     raw_object = module.params.get("object") or {}

@@ -71,9 +71,9 @@ def subset_diff(current, desired_subset):
     # scalars
     return desired_subset if current != desired_subset else None
 
+
 def emit_result(module, result, resource_key, extra=None):
-    """
-    Normalize and emit an Ansible module result.
+    """Normalize and emit an Ansible module result.
 
     Keeps only 'changed' and 'diff' from *result* and remaps 'result' -> resource_key.
     - module: AnsibleModule
