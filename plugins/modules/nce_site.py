@@ -181,11 +181,10 @@ def run_module():
         desired_object=raw_object,
         state=state,
         id_key='id',
-        extract_keys=("data","list","sites","items"),
-        # Hooks required: module controls URL/payload conventions
         make_create_request=_make_create_request,
         make_update_request=_make_update_request,
         make_delete_request=_make_delete_request,
+        extract_keys=("data","list","sites","items"),
     )
     out = emit_result(module, result, resource_key='site')
     module.exit_json(**out)

@@ -64,12 +64,12 @@ def ensure_idempotent_state(module,
     desired_object,
     state,
     id_key,
-    extract_keys=("data","list","sites","items"),
-    page_size=100,
-    readonly_keys=READONLY_KEYS,
     make_create_request,
     make_update_request,
     make_delete_request,
+    extract_keys=("data","list","sites","items"),
+    page_size=100,
+    readonly_keys=READONLY_KEYS,
     ):
     """Generic idempotent state handler with mandatory request builders.
     The module retains full control on URL and payload shapes via hooks.
@@ -118,6 +118,7 @@ def ensure_idempotent_state(module,
     upd_path, upd_payload = make_update_request(collection_path, obj_id, payload)
     updated = put_json(module, upd_path, payload=upd_payload)
     return {"changed": True, "diff": diff_subset, "result": strip_readonly(updated, readonly_keys), "current": current}
+
 def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
     """Collect all matching items given a selector or (when selector is empty) a name fallback.
     - If selector is provided: match items where all selector[k] == item[k] (including 'name' if provided).
