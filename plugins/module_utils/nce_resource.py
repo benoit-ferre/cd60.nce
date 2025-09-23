@@ -70,6 +70,10 @@ def ensure_idempotent_state(module,
     extract_keys=("data","list","sites","items"),
     page_size=100,
     readonly_keys=READONLY_KEYS,
+    # Hooks (REQUIRED)
+    make_create_request=None,
+    make_update_request=None,
+    make_delete_request=None,
     ):
     """Generic idempotent state handler with mandatory request builders.
     The module retains full control on URL and payload shapes via hooks.
@@ -79,6 +83,9 @@ def ensure_idempotent_state(module,
 
     Returns a dict: {changed: bool, diff: dict|None, result: dict|None, current: dict|None}
     """
+    if not callable(make_create_request) or not callable(make_update_request) or not callable(make_delete_request):
+        module.fail_json(msg='Internal error: make_create_request/make_update_request/make_delete_request hooks are required and must be callables.')
+
     selector = prune_unset(selector or {})
     desired = prune_unset(desired_object or {})
     name = desired.get('name')
@@ -90,12 +97,14 @@ def ensure_idempotent_state(module,
     if state == 'absent':
         if not current:
             return {"changed": False, "diff": None, "result": None, "current": None}
+        # For delete, show the FULL current object in diff.before (unfiltered), after={}
+        diff_struct = {"before": current, "after": {}}
         if module.check_mode:
-            return {"changed": True, "diff": None, "result": strip_readonly(current, readonly_keys), "current": current}
+            return {"changed": True, "diff": diff_struct, "result": current, "current": current}
         obj_id = current.get(id_key)
         del_path, del_payload = make_delete_request(collection_path, obj_id)
         delete_json(module, del_path, payload=del_payload)
-        return {"changed": True, "diff": None, "result": None, "current": current}
+        return {"changed": True, "diff": diff_struct, "result": None, "current": current}
 
     # state == 'present'
     if not current:

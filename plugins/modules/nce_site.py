@@ -111,8 +111,9 @@ changed:
   type: bool
 diff:
   description:
-    - Before/After structure limited to user-provided keys in C(object).
-    - Only changed keys are included.
+    - Create: { before: {}, after: desired }.
+    - Update: { before: <subset of current>, after: <subset of desired> } for the keys you provided.
+    - Delete: { before: <FULL current object as returned by API>, after: {} }.
   type: dict
 site:
   description: The resulting site payload returned by NCE (when available).
