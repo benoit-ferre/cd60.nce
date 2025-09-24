@@ -1,7 +1,8 @@
 ---
 # Tests d'intégration complets pour cd60.nce.nce_site
 # Couvre création (tous champs), idempotence, mises à jour de chaque propriété,
-# effacement de chaînes, gestion de l'alias 'longtitude', rename, lookup, suppression.
+# effacement de chaînes, gestion de l'alias 'longtitude', rename, lookup, suppression,
+# ET assertions de valeurs à chaque étape.
 
 - name: "set facts from env"
   no_log: true
@@ -120,6 +121,41 @@
     that:
       - create_full is changed
 
+# Extraire l'objet renvoyé par l'API si présent (success[0]), sinon fallback lookup
+- name: "Extract created site object (from API payload or lookup fallback)"
+  ansible.builtin.set_fact:
+    site_after_create: >-
+      {{
+        (create_full.site.success[0])
+          if (create_full is defined and create_full.site is defined
+              and create_full.site is mapping
+              and (create_full.site.success is defined)
+              and (create_full.site.success | length > 0))
+        else
+          (query('cd60.nce.nce_lookup', 'sites', test_site_old_name,
+                 base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) | first)
+      }}
+
+- name: "Assert created site values match expected"
+  ansible.builtin.assert:
+    that:
+      - site_after_create.name == test_site_old_name
+      - (site_after_create.address | default('')) == test_addr1
+      - (site_after_create.description | default('')) == test_desc1
+      - ((site_after_create.latitude | string) == (test_lat1 | string))
+      - >
+        ((site_after_create.longitude | default('') | string) == (test_lon1 | string)) or
+        ((site_after_create.longtitude | default('') | string) == (test_lon1 | string))
+      - (site_after_create.contact | default('')) == test_contact1
+      - (site_after_create.tag | default([]) | sort) == (test_tags1 | sort)
+      - (site_after_create.isolated | default(false)) == false
+      - (site_after_create.email | default('')) == test_email1
+      - (site_after_create.phone | default('')) == test_phone1
+      - (site_after_create.postcode | default('')) == test_postcode1
+      - (site_after_create.siteTag | default('')) == test_siteTag1
+      - (site_after_create.type | default([]) | sort) == (test_type_initial | sort)
+  fail_msg: "Created site mismatch: {{ site_after_create }}"
+
 # Idempotence création
 - name: "Create again (idempotent, same full payload)"
   cd60.nce.nce_site:
@@ -178,6 +214,31 @@
       - update_all is changed
       - update_all.diff is defined
 
+# Vérifier la réalité côté NCE (si l'API n'a pas renvoyé l'objet final)
+- name: "Lookup site after update"
+  ansible.builtin.set_fact:
+    site_after_update: "{{ query('cd60.nce.nce_lookup', 'sites', test_site_old_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) | first }}"
+
+- name: "Assert updated site values match expected"
+  ansible.builtin.assert:
+    that:
+      - site_after_update.name == test_site_old_name
+      - (site_after_update.address | default('')) == test_addr2
+      - (site_after_update.description | default('')) == test_desc2
+      - ((site_after_update.latitude | string) == (test_lat2 | string))
+      - >
+        ((site_after_update.longitude | default('') | string) == (test_lon2 | string)) or
+        ((site_after_update.longtitude | default('') | string) == (test_lon2 | string))
+      - (site_after_update.contact | default('')) == test_contact2
+      - (site_after_update.tag | default([]) | sort) == (test_tags2 | sort)
+      - (site_after_update.isolated | default(false)) == true
+      - (site_after_update.email | default('')) == test_email2
+      - (site_after_update.phone | default('')) == test_phone2
+      - (site_after_update.postcode | default('')) == test_postcode2
+      - (site_after_update.siteTag | default('')) == test_siteTag2
+      - (site_after_update.type | default([]) | sort) == (test_type_updated | sort)
+  fail_msg: "Updated site mismatch: {{ site_after_update }}"
+
 # Idempotence après update
 - name: "Run again with same updated payload (idempotent)"
   cd60.nce.nce_site:
@@ -223,31 +284,25 @@
       tag: []
   register: clear_fields
 
-- name: "Assert cleared fields"
+- name: "Assert cleared fields (API payload may be minimal -> verify via lookup)"
   ansible.builtin.assert:
     that:
       - clear_fields is changed
 
-- name: "Run again (idempotent after clear)"
-  cd60.nce.nce_site:
-    token: "{{ nce_token }}"
-    base_uri: "{{ nce_base_uri }}"
-    validate_certs: "{{ nce_validate_certs }}"
-    selector: {}
-    object:
-      name: "{{ test_site_old_name }}"
-      description: ""
-      siteTag: ""
-      email: ""
-      phone: ""
-      postcode: ""
-      tag: []
-  register: idem_after_clear
+- name: "Lookup site after clearing"
+  ansible.builtin.set_fact:
+    site_after_clear: "{{ query('cd60.nce.nce_lookup', 'sites', test_site_old_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) | first }}"
 
-- name: "Assert idempotent after clear"
+- name: "Assert cleared values reflected on the resource"
   ansible.builtin.assert:
     that:
-      - not (idem_after_clear is changed)
+      - (site_after_clear.description | default('')) == ''
+      - (site_after_clear.siteTag | default('')) == ''
+      - (site_after_clear.email | default('')) == ''
+      - (site_after_clear.phone | default('')) == ''
+      - (site_after_clear.postcode | default('')) == ''
+      - (site_after_clear.tag | default([])) == []
+  fail_msg: "Clear mismatch: {{ site_after_clear }}"
 
 # --- Check-mode pour changement détecté
 - name: "Check-mode update (should report changed but not apply)"
@@ -299,17 +354,24 @@
     that:
       - not (idem_after_rename is changed)
 
-# --- Lookup plugin
+# --- Lookup plugin (et assertions finales de valeurs après rename)
 - name: "query site via lookup plugin"
   ansible.builtin.set_fact:
     looked_site: "{{ query('cd60.nce.nce_lookup', 'sites', test_site_new_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) }}"
 
-- name: "Assert lookup returned exactly one item"
+- name: "Assert lookup returned exactly one item + expected values still present (where not cleared)"
   ansible.builtin.assert:
     that:
       - looked_site | length == 1
       - looked_site[0].name == test_site_new_name
-    fail_msg: "looked_site {{ looked_site }}"
+      # Les champs vidés précédemment doivent rester vides
+      - (looked_site[0].description | default('')) == ''
+      - (looked_site[0].siteTag     | default('')) == ''
+      - (looked_site[0].email       | default('')) == ''
+      - (looked_site[0].phone       | default('')) == ''
+      - (looked_site[0].postcode    | default('')) == ''
+      - (looked_site[0].tag         | default([])) == []
+  fail_msg: "Lookup mismatch: {{ looked_site }}"
 
 # --- Suppression et idempotence suppression
 - name: "Delete site (absent)"
