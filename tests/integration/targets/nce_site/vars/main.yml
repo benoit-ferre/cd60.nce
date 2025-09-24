@@ -1,16 +1,9 @@
-# Integration variables (populated from environment in CI)
-# Required: NCE_BASE_URI, NCE_USERNAME, NCE_PASSWORD
-# Optional: NCE_VALIDATE_CERTS, NCE_TEST_* overrides
-nce_base_uri: "{{ lookup('env', 'NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
+# Integration variables (facultatif : tous les champs sont déjà injectés par set_fact)
+# On conserve ce fichier pour compatibilité CI, avec les defaults usuels.
+
+nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
 nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
-# NOTE: if these remain undefined, the play will be skipped gracefully
 nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit) }}"
 nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit) }}"
 
-# Test data
-test_site_old_name: "{{ lookup('env','NCE_TEST_SITE_OLD') | default('CD60-Integration-Site-Temp', true) }}"
-test_site_new_name: "{{ lookup('env','NCE_TEST_SITE_NEW') | default('CD60-Integration-Site', true) }}"
-test_site_city: "{{ lookup('env','NCE_TEST_SITE_CITY') | default('Beauvais', true) }}"
-test_site_timezone: "{{ lookup('env','NCE_TEST_SITE_TZ') | default('Europe/Paris', true) }}"
-test_site_address: "{{ lookup('env','NCE_TEST_SITE_ADDR') | default('1 Rue de la Préfecture', true) }}"
-test_site_country: "{{ lookup('env','NCE_TEST_SITE_COUNTRY') | default('FR', true) }}"
+

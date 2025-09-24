@@ -17,6 +17,8 @@ bundle:
 	  -I "plugins/module_utils/*.py" \
 	  -I "plugins/lookup/*.py" \
 	  -I "plugins/inventory/*.py" \
+	  -I "tests/integration/*.yml" \
+	  -I "tests/integration/targets/*/tasks/*.yml" \
 	  -I "meta/runtime.yml" \
 	  -I "docs/cd60.nce-openapi.yml" \
 	  -o $(BUNDLE_OUT)

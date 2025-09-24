@@ -1,22 +1,54 @@
-
 ---
+# Tests d'intégration complets pour cd60.nce.nce_site
+# Couvre création (tous champs), idempotence, mises à jour de chaque propriété,
+# effacement de chaînes, gestion de l'alias 'longtitude', rename, lookup, suppression.
+
 - name: "set facts from env"
   no_log: true
   ansible.builtin.set_fact:
-    nce_base_uri: "{{ lookup('env', 'NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
-    nce_base_uri2: "{{ lookup('env', 'NCE_BASE_URI') }}"
+    nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
     nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
-    # NOTE: if these remain undefined, the play will be skipped gracefully
+    # NOTE: si ces creds restent indéfinis, on stoppe le play proprement
     nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit, true) }}"
     nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit, true) }}"
-    # Test data
+
+    # Jeu de données (surchargables par ENV)
     test_site_old_name: "{{ lookup('env','NCE_TEST_SITE_OLD') | default('CD60-Integration-Site-Temp', true) }}"
     test_site_new_name: "{{ lookup('env','NCE_TEST_SITE_NEW') | default('CD60-Integration-Site', true) }}"
-    test_site_city: "{{ lookup('env','NCE_TEST_SITE_CITY') | default('Beauvais', true) }}"
-    test_site_timezone: "{{ lookup('env','NCE_TEST_SITE_TZ') | default('Europe/Paris', true) }}"
-    test_site_address: "{{ lookup('env','NCE_TEST_SITE_ADDR') | default('1 Rue de la Préfecture', true) }}"
-    test_site_address_new: "{{ lookup('env','NCE_TEST_SITE_ADDR') | default('1 Rue de Paris', true) }}"
-    test_site_country: "{{ lookup('env','NCE_TEST_SITE_COUNTRY') | default('FR', true) }}"
+
+    test_type_initial: "{{ (lookup('env','NCE_TEST_SITE_TYPE1') | default('AP,SW', true)).split(',') }}"
+    test_type_updated: "{{ (lookup('env','NCE_TEST_SITE_TYPE2') | default('AP', true)).split(',') }}"
+
+    test_desc1: "{{ lookup('env','NCE_TEST_SITE_DESC1') | default('Initial description', true) }}"
+    test_desc2: "{{ lookup('env','NCE_TEST_SITE_DESC2') | default('Updated by Ansible', true) }}"
+
+    test_addr1: "{{ lookup('env','NCE_TEST_SITE_ADDR1') | default('1 Rue de la Préfecture', true) }}"
+    test_addr2: "{{ lookup('env','NCE_TEST_SITE_ADDR2') | default('1 Rue de Paris', true) }}"
+
+    test_lat1: "{{ lookup('env','NCE_TEST_SITE_LAT1') | default('49.4321', true) }}"
+    test_lon1: "{{ lookup('env','NCE_TEST_SITE_LON1') | default('2.0833', true) }}"
+    test_lat2: "{{ lookup('env','NCE_TEST_SITE_LAT2') | default('49.5000', true) }}"
+    test_lon2: "{{ lookup('env','NCE_TEST_SITE_LON2') | default('2.2500', true) }}"
+
+    test_contact1: "{{ lookup('env','NCE_TEST_SITE_CONTACT1') | default('David', true) }}"
+    test_contact2: "{{ lookup('env','NCE_TEST_SITE_CONTACT2') | default('Alice', true) }}"
+
+    test_tags1: "{{ (lookup('env','NCE_TEST_SITE_TAGS1') | default('abcd', true)).split(',') }}"
+    test_tags2: "{{ (lookup('env','NCE_TEST_SITE_TAGS2') | default('alpha,beta,gamma', true)).split(',') }}"
+
+    test_email1: "{{ lookup('env','NCE_TEST_SITE_EMAIL1') | default('ops@example.org', true) }}"
+    test_email2: "{{ lookup('env','NCE_TEST_SITE_EMAIL2') | default('noc@example.org', true) }}"
+
+    test_phone1: "{{ lookup('env','NCE_TEST_SITE_PHONE1') | default('15277431823', true) }}"
+    test_phone2: "{{ lookup('env','NCE_TEST_SITE_PHONE2') | default('+33 1 23 45 67 89', true) }}"
+
+    test_postcode1: "{{ lookup('env','NCE_TEST_SITE_PC1') | default('60000', true) }}"
+    test_postcode2: "{{ lookup('env','NCE_TEST_SITE_PC2') | default('75001', true) }}"
+
+    test_siteTag1: "{{ lookup('env','NCE_TEST_SITE_TAG1') | default('initial', true) }}"
+    test_siteTag2: "{{ lookup('env','NCE_TEST_SITE_TAG2') | default('ops', true) }}"
+
+    test_southAccName: "{{ lookup('env','NCE_TEST_SOUTHACC') | default('Public Default South Access', true) }}"
 
 - name: "Skip when credentials are not provided (NCE_USERNAME/NCE_PASSWORD)"
   meta: end_play
@@ -33,10 +65,11 @@
 
 - name: "Set token fact"
   no_log: true
-  set_fact:
+  ansible.builtin.set_fact:
     nce_token: "{{ auth.token }}"
 
-- name: "Ensure test sites are absent (cleanup pre) - old"
+# --- Pré-nettoyage
+- name: "Ensure test sites are absent (pre-clean) - old"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -47,7 +80,7 @@
   register: pre_absent_old
   failed_when: false
 
-- name: "Ensure test sites are absent (cleanup pre) - new"
+- name: "Ensure test sites are absent (pre-clean) - new"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -58,7 +91,8 @@
   register: pre_absent_new
   failed_when: false
 
-- name: "Create site (old name)"
+# --- Création (tous champs)
+- name: "Create site with all properties"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -66,15 +100,28 @@
     selector: {}
     object:
       name: "{{ test_site_old_name }}"
-      address: "{{ test_site_address }}"
-  register: create_old
+      type: "{{ test_type_initial }}"          # REQUIRED on create
+      southAccName: "{{ test_southAccName }}"  # utilisé uniquement à la création
+      description: "{{ test_desc1 }}"
+      address: "{{ test_addr1 }}"
+      latitude: "{{ test_lat1 }}"
+      longitude: "{{ test_lon1 }}"
+      contact: "{{ test_contact1 }}"
+      tag: "{{ test_tags1 }}"
+      isolated: false
+      email: "{{ test_email1 }}"
+      phone: "{{ test_phone1 }}"
+      postcode: "{{ test_postcode1 }}"
+      siteTag: "{{ test_siteTag1 }}"
+  register: create_full
 
 - name: "Assert created"
-  assert:
+  ansible.builtin.assert:
     that:
-      - create_old is changed
+      - create_full is changed
 
-- name: "Create again (idempotent)"
+# Idempotence création
+- name: "Create again (idempotent, same full payload)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -82,15 +129,28 @@
     selector: {}
     object:
       name: "{{ test_site_old_name }}"
-      address: "{{ test_site_address }}"
+      type: "{{ test_type_initial }}"
+      southAccName: "{{ test_southAccName }}"
+      description: "{{ test_desc1 }}"
+      address: "{{ test_addr1 }}"
+      latitude: "{{ test_lat1 }}"
+      longitude: "{{ test_lon1 }}"
+      contact: "{{ test_contact1 }}"
+      tag: "{{ test_tags1 }}"
+      isolated: false
+      email: "{{ test_email1 }}"
+      phone: "{{ test_phone1 }}"
+      postcode: "{{ test_postcode1 }}"
+      siteTag: "{{ test_siteTag1 }}"
   register: create_again
 
 - name: "Assert idempotent"
-  assert:
+  ansible.builtin.assert:
     that:
       - not (create_again is changed)
 
-- name: "Update mutable fields (address)"
+# --- Mises à jour couvrant chaque propriété
+- name: "Update multiple mutable fields (incl. alias longtitude, list fields, booleans)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -98,51 +158,133 @@
     selector: {}
     object:
       name: "{{ test_site_old_name }}"
-      address: "{{ test_site_address_new }}"
-      description: "Updated by Ansible"
-  register: update_fields
+      description: "{{ test_desc2 }}"
+      address: "{{ test_addr2 }}"
+      latitude: "{{ test_lat2 }}"
+      longtitude: "{{ test_lon2 }}"  # alias historique accepté
+      contact: "{{ test_contact2 }}"
+      tag: "{{ test_tags2 }}"
+      isolated: true
+      email: "{{ test_email2 }}"
+      phone: "{{ test_phone2 }}"
+      postcode: "{{ test_postcode2 }}"
+      siteTag: "{{ test_siteTag2 }}"
+      type: "{{ test_type_updated }}"
+  register: update_all
 
-- name: "Assert updated"
-  assert:
+- name: "Assert updated (diff present)"
+  ansible.builtin.assert:
     that:
-      - update_fields is changed
-      - update_fields.diff is defined
+      - update_all is changed
+      - update_all.diff is defined
 
+# Idempotence après update
+- name: "Run again with same updated payload (idempotent)"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    selector: {}
+    object:
+      name: "{{ test_site_old_name }}"
+      description: "{{ test_desc2 }}"
+      address: "{{ test_addr2 }}"
+      latitude: "{{ test_lat2 }}"
+      longtitude: "{{ test_lon2 }}"
+      contact: "{{ test_contact2 }}"
+      tag: "{{ test_tags2 }}"
+      isolated: true
+      email: "{{ test_email2 }}"
+      phone: "{{ test_phone2 }}"
+      postcode: "{{ test_postcode2 }}"
+      siteTag: "{{ test_siteTag2 }}"
+      type: "{{ test_type_updated }}"
+  register: idem_after_update
+
+- name: "Assert idempotent after update"
+  ansible.builtin.assert:
+    that:
+      - not (idem_after_update is changed)
+
+# --- Effacement de valeurs (strings -> "", listes -> [])
+- name: "Clear optional strings and empty tag list"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    selector: {}
+    object:
+      name: "{{ test_site_old_name }}"
+      description: ""
+      siteTag: ""
+      email: ""
+      phone: ""
+      postcode: ""
+      tag: []
+  register: clear_fields
+
+- name: "Assert cleared fields"
+  ansible.builtin.assert:
+    that:
+      - clear_fields is changed
+
+- name: "Run again (idempotent after clear)"
+  cd60.nce.nce_site:
+    token: "{{ nce_token }}"
+    base_uri: "{{ nce_base_uri }}"
+    validate_certs: "{{ nce_validate_certs }}"
+    selector: {}
+    object:
+      name: "{{ test_site_old_name }}"
+      description: ""
+      siteTag: ""
+      email: ""
+      phone: ""
+      postcode: ""
+      tag: []
+  register: idem_after_clear
+
+- name: "Assert idempotent after clear"
+  ansible.builtin.assert:
+    that:
+      - not (idem_after_clear is changed)
+
+# --- Check-mode pour changement détecté
 - name: "Check-mode update (should report changed but not apply)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
     validate_certs: "{{ nce_validate_certs }}"
-    selector: { city: "{{ test_site_city }}" }
+    selector: {}
     object:
       name: "{{ test_site_old_name }}"
-      address: "{{ test_site_address_new }}changed"
+      address: "{{ test_addr2 }}-dryrun"
   register: dryrun
   check_mode: true
 
 - name: "Assert dry-run would change"
-  assert:
+  ansible.builtin.assert:
     that:
       - dryrun is changed
 
+# --- Rename (selector.name -> object.name)
 - name: "Rename using selector.name (old) -> object.name (new)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
     validate_certs: "{{ nce_validate_certs }}"
     selector:
-      name: "{{ test_site_old_name }}"   # old name in selector to drive rename
+      name: "{{ test_site_old_name }}"
     object:
-      name: "{{ test_site_new_name }}"   # new name in object.name
-      city: "{{ test_site_city }}"
+      name: "{{ test_site_new_name }}"
   register: rename
 
 - name: "Assert renamed"
-  assert:
+  ansible.builtin.assert:
     that:
       - rename is changed
 
-- name: "Run with new name (idempotent)"
+- name: "Run with new name only (idempotent)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
     base_uri: "{{ nce_base_uri }}"
@@ -150,25 +292,26 @@
     selector: {}
     object:
       name: "{{ test_site_new_name }}"
-      address: "{{ test_site_address_new }}"
   register: idem_after_rename
 
 - name: "Assert idempotent after rename"
-  assert:
+  ansible.builtin.assert:
     that:
       - not (idem_after_rename is changed)
 
-- name: "query site via plugin"
-  set_fact:
+# --- Lookup plugin
+- name: "query site via lookup plugin"
+  ansible.builtin.set_fact:
     looked_site: "{{ query('cd60.nce.nce_lookup', 'sites', test_site_new_name, base_uri=nce_base_uri, token=nce_token, validate_certs=nce_validate_certs) }}"
 
-- name: "Assert query returned exactly one item"
-  assert:
+- name: "Assert lookup returned exactly one item"
+  ansible.builtin.assert:
     that:
       - looked_site | length == 1
       - looked_site[0].name == test_site_new_name
-    fail_msg: "looked_site {{ looked_site}}"
+    fail_msg: "looked_site {{ looked_site }}"
 
+# --- Suppression et idempotence suppression
 - name: "Delete site (absent)"
   cd60.nce.nce_site:
     token: "{{ nce_token }}"
@@ -180,7 +323,7 @@
   register: delete_new
 
 - name: "Assert deleted"
-  assert:
+  ansible.builtin.assert:
     that:
       - delete_new is changed
 
@@ -195,10 +338,11 @@
   register: delete_again
 
 - name: "Assert delete idempotent"
-  assert:
+  ansible.builtin.assert:
     that:
       - not (delete_again is changed)
 
+# --- Révocation du token
 - name: "Revoke token"
   no_log: true
   cd60.nce.nce_auth:
