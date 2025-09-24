@@ -18,6 +18,7 @@ bundle:
 	  -I "plugins/lookup/*.py" \
 	  -I "plugins/inventory/*.py" \
 	  -I "meta/runtime.yml" \
+	  -I "docs/cd60.nce-openapi.yml" \
 	  -o $(BUNDLE_OUT)
 
 bundle-clean:
