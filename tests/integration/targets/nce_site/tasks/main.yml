@@ -7,11 +7,11 @@
 - name: "set facts from env"
   no_log: true
   ansible.builtin.set_fact:
-    nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
-    nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
-    # NOTE: si ces creds restent indéfinis, on stoppe le play proprement
-    nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit, true) }}"
-    nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit, true) }}"
+    #nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
+    #nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
+    ## NOTE: si ces creds restent indéfinis, on stoppe le play proprement
+    #nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit, true) }}"
+    #nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit, true) }}"
 
     # Jeu de données (surchargables par ENV)
     test_site_old_name: "{{ lookup('env','NCE_TEST_SITE_OLD') | default('CD60-Integration-Site-Temp', true) }}"

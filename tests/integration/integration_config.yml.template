@@ -1,0 +1,8 @@
+
+# Fichier généré: tests/integration/integration_config.yml
+# ATTENTION: ne pas commiter, contient des secrets
+
+nce_username: "${NCE_USERNAME}"
+nce_password: "${NCE_PASSWORD}"
+nce_base_url: "${NCE_BASE_URL}"
+nce_verify_ssl: ${NCE_VERIFY_SSL:-false}

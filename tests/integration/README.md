@@ -48,3 +48,5 @@ ansible-test integration nce_site -vv --color --python 3.11
 # ou pour tous les tests d’intégration :
 ansible-test integration --retry-on-error --color -vv
 ```
+define 
+read -srp 'Mot de passe: ' NCE_PASSWORD
