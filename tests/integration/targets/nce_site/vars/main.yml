@@ -1,9 +1,9 @@
 # Integration variables (facultatif : tous les champs sont déjà injectés par set_fact)
 # On conserve ce fichier pour compatibilité CI, avec les defaults usuels.
 
-nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
-nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
-nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit) }}"
-nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit) }}"
+#nce_base_uri: "{{ lookup('env','NCE_BASE_URI') | default('https://weu.naas.huawei.com:18002', true) }}"
+#nce_validate_certs: "{{ (lookup('env','NCE_VALIDATE_CERTS') | default('false', true)) | bool }}"
+#nce_username: "{{ lookup('env','NCE_USERNAME') | default(omit) }}"
+#nce_password: "{{ lookup('env','NCE_PASSWORD') | default(omit) }}"
 
 

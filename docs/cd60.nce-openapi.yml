@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
-  title: "cd60.nce \u2013 Huawei iMaster NCE-Campus OpenAPI (Tenant view)"
+  title: "cd60.nce – Huawei iMaster NCE-Campus OpenAPI (Tenant view)"
   description: ''
-  version: 0.6.6
+  version: 0.6.7
 tags:
-- name: Authentication
-- name: Sites
+  - name: Authentication
+  - name: Sites
 paths:
   /controller/v2/tokens:
     post:
@@ -13,17 +13,16 @@ paths:
       deprecated: false
       description: ''
       tags:
-      - Authentication
+        - Authentication
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema:
+            type: string
+            default: en-US
       requestBody:
         content:
           application/json:
@@ -49,25 +48,23 @@ paths:
                 data:
                   expiredDate: '2016-10-25 12:03:37'
                   token_id: CA48D152F6B19D84:637C38259E...
-          headers: {}
       security:
-      - XAccessToken: []
+        - XAccessToken: []
     delete:
       summary: Revoke the current access token
       deprecated: false
       description: ''
       tags:
-      - Authentication
+        - Authentication
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema:
+            type: string
+            default: en-US
       requestBody:
         content:
           application/json:
@@ -86,65 +83,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-          headers: {}
       security:
-      - XAccessToken: []
+        - XAccessToken: []
+
   /controller/campus/v3/sites:
     get:
       summary: List sites (optional pagination)
       deprecated: false
-      description: Query site list with optional pagination. Supports fuzzy name filtering
-        (name) and exact ID filter (id). Use sort with %2Bname or -name.
-      tags:
-      - Sites
+      description: >
+        Query site list with optional pagination. Supports fuzzy name filtering (name) and exact ID filter (id).
+        Use sort with %2Bname or -name.
+      tags: [Sites]
       parameters:
-      - name: name
-        in: query
-        description: Filter by site name; URL-escape special characters.
-        required: false
-        schema:
-          type: string
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
-      - name: pageIndex
-        in: query
-        description: Index of the current page. If empty or 0, the API returns the
-          first page with pageSize=100.
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          maximum: 5000
-          default: 0
-      - name: pageSize
-        in: query
-        description: Page size. If empty and pageIndex is not 0, defaults to 20.
-        required: false
-        schema:
-          type: integer
-          minimum: 0
-          maximum: 100
-          default: 20
-      - name: id
-        in: query
-        description: Exact match by site ID.
-        required: false
-        schema:
-          type: string
-      - name: sort
-        in: query
-        description: Sorting field, e.g., +name for ascending or -name for descending.
-          Use %2B for "+" in URLs.
-        required: false
-        schema:
-          type: string
+        - name: name
+          in: query
+          description: Filter by site name; URL-escape special characters.
+          required: false
+          schema: { type: string }
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema: { type: string, default: en-US }
+        - name: pageIndex
+          in: query
+          description: Index of the current page. If empty or 0, the API returns the first page with pageSize=100.
+          required: false
+          schema: { type: integer, minimum: 0, maximum: 5000, default: 0 }
+        - name: pageSize
+          in: query
+          description: Page size. If empty and pageIndex is not 0, defaults to 20.
+          required: false
+          schema: { type: integer, minimum: 0, maximum: 100, default: 20 }
+        - name: id
+          in: query
+          description: Exact match by site ID.
+          required: false
+          schema: { type: string }
+        - name: sort
+          in: query
+          description: >
+            Sorting field, e.g., +name for ascending or -name for descending. Use %2B for "+" in URLs.
+          required: false
+          schema: { type: string }
       responses:
         '200':
           description: Sites page
@@ -159,36 +141,32 @@ paths:
                 pageSize: 20
                 totalRecords: 1
                 data:
-                - id: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
-                  name: site1
-                  type:
-                  - AP
-          headers: {}
+                  - id: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                    name: site1
+                    type: [AP]
       security:
-      - XAccessToken: []
+        - XAccessToken: []
       x-codeSamples:
-      - lang: cURL
-        label: cURL example (optional pagination with sort)
-        source: 'curl -k -s -L -G ''https://192.168.1.125:18002/controller/campus/v3/sites''
-          -H ''Accept: application/json'' -H ''Accept-Language: en-US'' -H ''X-ACCESS-TOKEN:
-          x-yyyyyy'' --data-urlencode ''pageIndex=1'' --data-urlencode ''pageSize=20''
-          --data-urlencode ''name=siteName'' --data-urlencode ''sort=%2Bname'''
+        - lang: cURL
+          label: cURL example (optional pagination with sort)
+          source: |
+            curl -k -s -L -G 'https://192.168.1.125:18002/controller/campus/v3/sites' \
+              -H 'Accept: application/json' -H 'Accept-Language: en-US' -H 'X-ACCESS-TOKEN: x-yyyyyy' \
+              --data-urlencode 'pageIndex=1' --data-urlencode 'pageSize=20' \
+              --data-urlencode 'name=siteName' --data-urlencode 'sort=%2Bname'
+
     post:
       summary: Create sites (batch)
       deprecated: false
       description: ''
-      tags:
-      - Sites
+      tags: [Sites]
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema: { type: string, default: en-US }
       requestBody:
         content:
           application/json:
@@ -198,10 +176,9 @@ paths:
               sample:
                 value:
                   sites:
-                  - name: site1
-                    southAccName: Public Default South Access
-                    type:
-                    - AP
+                    - name: site1
+                      southAccName: Public Default South Access
+                      type: [AP]
                 summary: sample
         required: true
       responses:
@@ -215,39 +192,31 @@ paths:
                 errcode: '0'
                 errmsg: ''
                 success:
-                - id: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
-                  name: site1
-                  type:
-                  - AP
-                  pattern: 1
-                  longitude: '111'
-                  latitude: '50'
+                  - id: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                    name: site1
+                    type: [AP]
+                    pattern: 1
+                    longitude: '111'
+                    latitude: '50'
                 fail: []
-          headers: {}
       security:
-      - XAccessToken: []
+        - XAccessToken: []
+
     delete:
       summary: Delete sites (DELETE alternative)
       deprecated: false
-      description: 'Deletes sites by IDs using HTTP DELETE with a request body.
-
+      description: >
+        Deletes sites by IDs using HTTP DELETE with a request body.
         Huawei docs advise using POST /controller/campus/v3/sites/action/batch-delete,
-
         but this legacy form is still documented.
-
-        '
-      tags:
-      - Sites
+      tags: [Sites]
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema: { type: string, default: en-US }
       requestBody:
         required: true
         content:
@@ -257,16 +226,13 @@ paths:
               properties:
                 ids:
                   type: array
-                  items:
-                    type: string
-              required:
-              - ids
+                  items: { type: string }
+              required: [ids]
             examples:
               sample:
                 summary: sample
                 value:
-                  ids:
-                  - ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                  ids: [ea25fdbf-8dee-4823-bac2-5bfe8e3359ca]
       responses:
         '200':
           description: Delete accepted
@@ -275,31 +241,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
       security:
-      - XAccessToken: []
+        - XAccessToken: []
+
   /controller/campus/v3/sites/batchupdate:
     put:
       summary: Update sites (batch)
       deprecated: false
-      description: 'Updates multiple sites in one request. **Top-level JSON array**
-        is required.
-
-        Per Huawei NBI guides, during the modify operation (PUT), omitted optional
-        fields or fields set to `null` typically leave existing values unchanged;
-        to clear a string field, set it to `""`.
-
-        '
-      tags:
-      - Sites
+      description: |
+        Updates multiple sites in one request. **Top-level JSON array** is required.
+        Per Huawei NBI guides, during the modify operation (PUT), omitted optional fields or fields set to `null`
+        typically leave existing values unchanged; to clear a string field, set it to `""`.
+      tags: [Sites]
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema: { type: string, default: en-US }
       requestBody:
         content:
           application/json:
@@ -310,23 +269,21 @@ paths:
             examples:
               sample:
                 value:
-                - siteId: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
-                  name: site1
-                  description: site1
-                  latitude: '50'
-                  longtitude: '111'
-                  longitude: '111'
-                  contact: David
-                  tag:
-                  - abcd
-                  isolated: false
-                  type:
-                  - AP
-                  email: xxx@xxx.xxx
-                  phone: '15277431823'
-                  postcode: '215000'
-                  address: 66 JiangYun Road
-                  siteTag: ''
+                  - siteId: ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                    name: site1
+                    description: site1
+                    latitude: '50'
+                    longtitude: '111'
+                    longitude: '111'
+                    contact: David
+                    tag: [abcd]
+                    isolated: false
+                    type: [AP]
+                    email: xxx@xxx.xxx
+                    phone: '15277431823'
+                    postcode: '215000'
+                    address: 66 JiangYun Road
+                    siteTag: ''
                 summary: sample
         required: true
       responses:
@@ -336,26 +293,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-          headers: {}
       security:
-      - XAccessToken: []
+        - XAccessToken: []
+
   /controller/campus/v3/sites/action/batch-delete:
     post:
       summary: Delete sites (batch)
       deprecated: false
       description: Deletes multiple sites by their IDs using a POST action endpoint.
-      tags:
-      - Sites
+      tags: [Sites]
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          schema: { type: string, default: en-US }
       requestBody:
         content:
           application/json:
@@ -367,13 +319,11 @@ paths:
                   items:
                     type: string
                     format: uuid
-              required:
-              - ids
+              required: [ids]
             examples:
               sample:
                 value:
-                  ids:
-                  - ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                  ids: [ea25fdbf-8dee-4823-bac2-5bfe8e3359ca]
                 summary: sample
         required: true
       responses:
@@ -383,40 +333,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-          headers: {}
       security:
-      - XAccessToken: []
+        - XAccessToken: []
       x-codeSamples:
-      - lang: cURL
-        label: cURL example (from Huawei doc)
-        source: "curl -k -s -L -X POST               -H 'Content-Type: application/json'\
-          \               -H 'Accept: application/json'               -H 'Accept-Language:\
-          \ en-US'               -H 'X-ACCESS-TOKEN: x-yyyyyy'               'https://192.168.1.125:18002/controller/campus/v3/sites/action/batch-delete'\
-          \               -d '{\n    \"ids\": [\"ea25fdbf-8dee-4823-bac2-5bfe8e3359ca\"\
-          ]\n  }'\n"
+        - lang: cURL
+          label: cURL example (from Huawei doc)
+          source: |
+            curl -k -s -L -X POST -H 'Content-Type: application/json' \
+              -H 'Accept: application/json' -H 'Accept-Language: en-US' -H 'X-ACCESS-TOKEN: x-yyyyyy' \
+              'https://192.168.1.125:18002/controller/campus/v3/sites/action/batch-delete' \
+              -d '{
+                "ids": ["ea25fdbf-8dee-4823-bac2-5bfe8e3359ca"]
+              }'
+
   /controller/campus/v3/sites/{siteId}:
     put:
       summary: Modify a site (non-batch)
       deprecated: false
       description: ''
-      tags:
-      - Sites
+      tags: [Sites]
       parameters:
-      - name: siteId
-        in: path
-        description: Site identifier
-        required: true
-        schema:
-          type: string
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        example: ''
-        schema:
-          type: string
-          default: en-US
+        - name: siteId
+          in: path
+          description: Site identifier
+          required: true
+          schema: { type: string }
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          example: ''
+          schema: { type: string, default: en-US }
       requestBody:
         required: true
         content:
@@ -433,11 +380,9 @@ paths:
                   longtitude: '111'
                   longitude: '111'
                   contact: David
-                  tag:
-                  - abcd
+                  tag: [abcd]
                   isolated: false
-                  type:
-                  - AP
+                  type: [AP]
                   email: xxx@xxx.xxx
                   phone: '15277431823'
                   postcode: '215000'
@@ -451,24 +396,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
       security:
-      - XAccessToken: []
+        - XAccessToken: []
+
   /controller/campus/v3/sites/action/batch-query:
     post:
       summary: Query sites in batches
       deprecated: false
-      description: 'Queries site information by a list of site IDs. Matches Huawei
-        doc: "Query Sites in Batches".'
-      tags:
-      - Sites
+      description: 'Queries site information by a list of site IDs. Matches Huawei doc: "Query Sites in Batches".'
+      tags: [Sites]
       parameters:
-      - name: Accept-Language
-        in: header
-        description: Language for messages. Some docs show `en_US`; `en-US` is used
-          here.
-        required: false
-        schema:
-          type: string
-          default: en-US
+        - name: Accept-Language
+          in: header
+          description: Language for messages. Some docs show `en_US`; `en-US` is used here.
+          required: false
+          schema: { type: string, default: en-US }
       requestBody:
         required: true
         content:
@@ -479,8 +420,7 @@ paths:
               sample:
                 summary: sample
                 value:
-                  siteIds:
-                  - ea25fdbf-8dee-4823-bac2-5bfe8e3359ca
+                  siteIds: [ea25fdbf-8dee-4823-bac2-5bfe8e3359ca]
       responses:
         '200':
           description: OK
@@ -489,45 +429,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/BatchQuerySitesResponse'
       security:
-      - XAccessToken: []
+        - XAccessToken: []
       x-codeSamples:
-      - lang: cURL
-        label: cURL example (from Huawei doc)
-        source: 'curl -k -s -L -X POST -H ''Content-Type: application/json'' -H ''Accept:
-          application/json'' -H ''Accept-Language: en-US'' -H ''X-ACCESS-TOKEN: x-yyyyyy''
-          ''https://192.168.1.125:18002/controller/campus/v3/sites/action/batch-query''
-          -d ''{\n "siteIds": ["ea25fdbf-8dee-4823-bac2-5bfe8e3359ca"]\n }''
+        - lang: cURL
+          label: cURL example (from Huawei doc)
+          source: |
+            curl -k -s -L -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' \
+              -H 'Accept-Language: en-US' -H 'X-ACCESS-TOKEN: x-yyyyyy' \
+              'https://192.168.1.125:18002/controller/campus/v3/sites/action/batch-query' \
+              -d '{
+                "siteIds": ["ea25fdbf-8dee-4823-bac2-5bfe8e3359ca"]
+              }'
 
-          '
 webhooks: {}
 components:
   schemas:
     ApiError:
       type: object
       properties:
-        errcode:
-          type: string
-        errmsg:
-          type: string
-      required:
-      - errcode
+        errcode: { type: string }
+        errmsg: { type: string }
+      required: [errcode]
+
     TokenRequest:
       type: object
       properties:
-        userName:
-          type: string
-        password:
-          type: string
-      required:
-      - userName
-      - password
+        userName: { type: string }
+        password: { type: string }
+      required: [userName, password]
+
     TokenResponse:
       type: object
       properties:
-        errcode:
-          type: string
-        errmsg:
-          type: string
+        errcode: { type: string }
+        errmsg: { type: string }
         data:
           type: object
           properties:
@@ -537,104 +472,57 @@ components:
             token_id:
               type: string
               description: Access token value
-          required:
-          - token_id
-      required:
-      - errcode
-      - data
+          required: [token_id]
+      required: [errcode, data]
+
     TokenDeleteRequest:
       type: object
       properties:
-        token:
-          type: string
-      required:
-      - token
+        token: { type: string }
+      required: [token]
+
     Site:
       type: object
       properties:
-        id: &id001
-          type: string
-        name: &id002
-          type: string
-        description: &id003
-          type:
-          - string
-          - 'null'
+        id: &id001 { type: string }
+        name: &id002 { type: string }
+        description: &id003 { type: [string, 'null'] }
         type: &id004
           type: array
           items:
             type: string
-        pattern: &id005
-          type:
-          - integer
-          - 'null'
-        latitude: &id006
-          type:
-          - string
-          - 'null'
-        longitude: &id007
-          type:
-          - string
-          - 'null'
+            enum: [AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE]
+        pattern: &id005 { type: [integer, 'null'] }
+        latitude: &id006 { type: [string, 'null'] }
+        longitude: &id007 { type: [string, 'null'] }
         longtitude: &id008
-          type:
-          - string
-          - 'null'
+          type: [string, 'null']
           description: Historical typo returned by API in some versions
-        contact: &id009
-          type:
-          - string
-          - 'null'
+        contact: &id009 { type: [string, 'null'] }
         tag: &id010
           type: array
-          items:
-            type: string
-        isolated: &id011
-          type:
-          - boolean
-          - 'null'
-        email: &id012
-          type:
-          - string
-          - 'null'
-        phone: &id013
-          type:
-          - string
-          - 'null'
-        postcode: &id014
-          type:
-          - string
-          - 'null'
-        address: &id015
-          type:
-          - string
-          - 'null'
-        siteTag: &id016
-          type:
-          - string
-          - 'null'
+          items: { type: string }
+        isolated: &id011 { type: [boolean, 'null'] }
+        email: &id012 { type: [string, 'null'] }
+        phone: &id013 { type: [string, 'null'] }
+        postcode: &id014 { type: [string, 'null'] }
+        address: &id015 { type: [string, 'null'] }
+        siteTag: &id016 { type: [string, 'null'] }
+
     SitesListResponse:
       type: object
       properties:
-        errcode:
-          type: string
-        errmsg:
-          type: string
-        pageIndex:
-          type: integer
-        pageSize:
-          type: integer
-        totalRecords:
-          type: integer
+        errcode: { type: string }
+        errmsg: { type: string }
+        pageIndex: { type: integer }
+        pageSize: { type: integer }
+        totalRecords: { type: integer }
         data:
           type: array
           items:
             $ref: '#/components/schemas/Site'
-      required:
-      - errcode
-      - pageIndex
-      - pageSize
-      - totalRecords
+      required: [errcode, pageIndex, pageSize, totalRecords]
+
     CreateSiteItem:
       type: object
       properties:
@@ -648,10 +536,10 @@ components:
           type: array
           items:
             type: string
-            description: Device role types hosted in this site (e.g., AP)
-      required:
-      - name
-      - type
+            enum: [AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE]
+          description: Device role types hosted in this site.
+      required: [name, type]
+
     CreateSitesRequest:
       type: object
       properties:
@@ -659,15 +547,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CreateSiteItem'
-      required:
-      - sites
+      required: [sites]
+
     CreateSitesResponse:
       type: object
       properties:
-        errcode:
-          type: string
-        errmsg:
-          type: string
+        errcode: { type: string }
+        errmsg: { type: string }
         success:
           type: array
           items:
@@ -677,146 +563,73 @@ components:
           items:
             type: object
             properties:
-              name:
-                type: string
-              errmsg:
-                type: string
-      required:
-      - errcode
+              name: { type: string }
+              errmsg: { type: string }
+      required: [errcode]
+
     SiteBatchUpdateItem:
       type: object
       description: Item for batch site update under `/controller/campus/v3/sites/batchupdate`.
       properties:
-        siteId:
-          type: string
-          description: Site identifier
-        name:
-          type: string
-        description:
-          type:
-          - string
-          - 'null'
-        latitude:
-          type:
-          - number
-          - string
-          - 'null'
-        longtitude:
-          type:
-          - number
-          - string
-          - 'null'
-        longitude:
-          type:
-          - number
-          - string
-          - 'null'
-        contact:
-          type:
-          - string
-          - 'null'
+        siteId: { type: string, description: Site identifier }
+        name: { type: string, description: '' }
+        latitude: { type: [number, string, 'null'] }
+        longtitude: { type: [number, string, 'null'] }
+        longitude: { type: [number, string, 'null'] }
+        contact: { type: [string, 'null'] }
         tag:
           type: array
-          items:
-            type: string
-        isolated:
-          type: boolean
+          items: { type: string }
+        isolated: { type: boolean }
         type:
           type: array
           items:
             type: string
-        email:
-          type:
-          - string
-          - 'null'
-        phone:
-          type:
-          - string
-          - 'null'
-        postcode:
-          type:
-          - string
-          - 'null'
-        address:
-          type:
-          - string
-          - 'null'
-        siteTag:
-          type:
-          - string
-          - 'null'
-      required:
-      - siteId
+            enum: [AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE]
+        email: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        postcode: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        siteTag: { type: [string, 'null'] }
+      required: [siteId]
+
     UpdateSite:
       type: object
-      description: Fields to modify a single site via PUT /controller/campus/v3/sites/{siteId}.
-        Omitted optional fields or fields set to null typically keep existing values;
-        to clear a string field, set it to "".
+      description: >
+        Fields to modify a single site via PUT /controller/campus/v3/sites/{siteId}.
+        Omitted optional fields or fields set to null typically keep existing values; to clear a string field, set it to "".
       properties:
-        name:
-          type: string
-        latitude:
-          type:
-          - number
-          - string
-          - 'null'
-        longtitude:
-          type:
-          - number
-          - string
-          - 'null'
-          description: Historical typo returned by API in some versions
-        longitude:
-          type:
-          - number
-          - string
-          - 'null'
-        contact:
-          type:
-          - string
-          - 'null'
+        name: { type: string }
+        latitude: { type: [number, string, 'null'] }
+        longtitude: { type: [number, string, 'null'], description: Historical typo returned by API in some versions }
+        longitude: { type: [number, string, 'null'] }
+        contact: { type: [string, 'null'] }
         tag:
           type: array
-          items:
-            type: string
-        isolated:
-          type: boolean
+          items: { type: string }
+        isolated: { type: boolean }
         type:
           type: array
           items:
             type: string
-        email:
-          type:
-          - string
-          - 'null'
-        phone:
-          type:
-          - string
-          - 'null'
-        postcode:
-          type:
-          - string
-          - 'null'
-        address:
-          type:
-          - string
-          - 'null'
-        siteTag:
-          type:
-          - string
-          - 'null'
+            enum: [AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE]
+        email: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        postcode: { type: [string, 'null'] }
+        address: { type: [string, 'null'] }
+        siteTag: { type: [string, 'null'] }
+
     BatchQuerySitesRequest:
       type: object
       properties:
         siteIds:
           type: array
-          items:
-            type: string
+          items: { type: string }
           minItems: 1
           maxItems: 100
           description: Site ID list. If not empty, exact query is performed by IDs.
-      required:
-      - siteIds
+      required: [siteIds]
+
     SiteQueryItem:
       type: object
       properties:
@@ -836,47 +649,17 @@ components:
         postcode: *id014
         address: *id015
         siteTag: *id016
-        tenantId:
-          type:
-          - string
-          - 'null'
-        organizationId:
-          type:
-          - string
-          - 'null'
-        organizationName:
-          type:
-          - string
-          - 'null'
-        approvalSwitch:
-          type:
-          - boolean
-          - 'null'
-        autoApprovalSwitch:
-          type:
-          - boolean
-          - 'null'
-        validityPeriod:
-          type:
-          - integer
-          - 'null'
-        siteCode:
-          type:
-          - string
-          - 'null'
-        siteCodeExpireTime:
-          type:
-          - integer
-          - string
-          - 'null'
-        isSiteCodeExpired:
-          type:
-          - boolean
-          - 'null'
-        totalDeviceCount:
-          type:
-          - integer
-          - 'null'
+        tenantId: { type: [string, 'null'] }
+        organizationId: { type: [string, 'null'] }
+        organizationName: { type: [string, 'null'] }
+        approvalSwitch: { type: [boolean, 'null'] }
+        autoApprovalSwitch: { type: [boolean, 'null'] }
+        validityPeriod: { type: [integer, 'null'] }
+        siteCode: { type: [string, 'null'] }
+        siteCodeExpireTime: { type: [integer, string, 'null'] }
+        isSiteCodeExpired: { type: [boolean, 'null'] }
+        totalDeviceCount: { type: [integer, 'null'] }
+
     BatchQuerySitesResponse:
       type: object
       properties:
@@ -884,15 +667,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SiteQueryItem'
-      required:
-      - data
+      required: [data]
+
   securitySchemes:
     XAccessToken:
       type: apiKey
       in: header
       name: X-ACCESS-TOKEN
-      description: Token obtained via **POST /controller/v2/tokens** and sent in every
-        subsequent request.
+      description: Token obtained via **POST /controller/v2/tokens** and sent in every subsequent request.
 servers: []
 security:
-- XAccessToken: []
+  - XAccessToken: []

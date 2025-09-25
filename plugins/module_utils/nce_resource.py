@@ -2,6 +2,7 @@
 # Resource discovery & idempotency helpers (generic)
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
+
 from ansible_collections.cd60.nce.plugins.module_utils.nce_http import iter_paged
 from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
     get_json, post_json, put_json, delete_json
@@ -10,7 +11,70 @@ from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
     prune_unset, strip_readonly, deep_merge, subset_diff, build_before_after, READONLY_KEYS
 )
 
-def find_by_selector_or_name(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
+
+def _build_batch_error_details(fail_list):
+    """Construit une liste de messages lisibles depuis un tableau fail[]."""
+    details = []
+    if isinstance(fail_list, list):
+        for f in fail_list:
+            code = None
+            msg = None
+            ident = None
+            if isinstance(f, dict):
+                code = f.get('errcode')
+                msg = f.get('errmsg') or f.get('message') or f.get('desc') or 'Batch operation failed'
+                data = f.get('data')
+                if isinstance(data, list) and data:
+                    ident = data[0].get('name') or data[0].get('id')
+            suffix = f" (item: {ident})" if ident else ""
+            if code:
+                details.append(f"{code}: {msg}{suffix}")
+            else:
+                details.append(f"{msg}{suffix}")
+    return details
+
+
+def _maybe_fail_on_api_semantic_error(module, operation, response):
+    """
+    Certains endpoints Huawei renvoient HTTP 200 même en cas d'échec métier.
+    Cette routine détecte :
+      - Réponses 'batch-like' {success:[], fail:[]} -> échec si fail non vide OU success vide.
+      - Réponses 'non-batch' avec errcode présent et != '0' -> échec.
+    Si une condition d'échec est détectée, on appelle module.fail_json(...).
+    """
+    if not isinstance(response, dict):
+        return
+
+    # 1) Cas batch: presence de success/fail
+    has_success = isinstance(response.get('success'), list)
+    has_fail = isinstance(response.get('fail'), list)
+    if has_success or has_fail:
+        success = response.get('success') or []
+        fail = response.get('fail') or []
+        if fail or len(success) == 0:
+            details = _build_batch_error_details(fail)
+            msg = f"{operation.capitalize()} failed"
+            if details:
+                msg += ": " + "; ".join(details)
+            module.fail_json(msg=msg, response=response, changed=False)
+        return  # batch ok -> rien à faire
+
+    # 2) Cas non-batch: errcode présent et non '0'
+    if 'errcode' in response:
+        try:
+            err = str(response.get('errcode'))
+        except Exception:
+            err = response.get('errcode')
+        if err not in (None, '', '0', 0):
+            errmsg = response.get('errmsg') or response.get('message') or response.get('desc') or 'Operation failed'
+            module.fail_json(
+                msg=f"{operation.capitalize()} failed: {errmsg} (errcode={response.get('errcode')})",
+                response=response,
+                changed=False,
+            )
+
+
+def find_by_selector_or_name(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
     """Find an object by selector (preferred) or by name (fallback), obeying pagination.
     selector: mapping of business keys (may include 'name' for rename).
     name_fallback: object.name to look up when selector is empty.
@@ -18,6 +82,7 @@ def find_by_selector_or_name(module, collection_path, selector, name_fallback, p
     base_filters = {}
     if not selector and name_fallback:
         base_filters["name"] = name_fallback
+
     for it in iter_paged(module, collection_path, base_filters=base_filters, page_size=page_size, extract_keys=extract_keys):
         if selector:
             if all(it.get(k) == v for k, v in selector.items()):
@@ -26,11 +91,18 @@ def find_by_selector_or_name(module, collection_path, selector, name_fallback, p
             return it
     return None
 
-def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
+
+def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
+    """Collect all matching items given a selector or (when selector is empty) a name fallback.
+    - If selector is provided: match items where all selector[k] == item[k] (including 'name' if provided).
+    - Else if name_fallback is provided: match items with item['name'] == name_fallback.
+    Returns a list of matching items (could be empty or multiple).
+    """
     selector = selector or {}
     base_filters = {}
     if not selector and name_fallback:
         base_filters['name'] = name_fallback
+
     matches = []
     for it in iter_paged(module, collection_path, base_filters=base_filters, page_size=page_size, extract_keys=extract_keys):
         if selector:
@@ -40,25 +112,28 @@ def find_candidates(module, collection_path, selector, name_fallback, page_size=
             matches.append(it)
     return matches
 
-def find_unique_or_fail(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
+
+def find_unique_or_fail(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
+    """Return a unique match or fail if multiple are found; returns None if no match.
+    Allows 'name' inside selector for rename scenarios.
+    """
     candidates = find_candidates(module, collection_path, selector, name_fallback, page_size=page_size, extract_keys=extract_keys)
     if not candidates:
         return None
     if len(candidates) > 1:
         preview = []
         for it in candidates[:5]:
-            preview.append({k: it.get(k) for k in ('id','name','city','timezone') if k in it})
-        module.fail_json(msg='Multiple resources match the provided selector/name. Please refine the selector (you may include "name" for rename).', matches=preview, count=len(candidates))
+            preview.append({k: it.get(k) for k in ('id', 'name', 'city', 'timezone') if k in it})
+        module.fail_json(
+            msg='Multiple resources match the provided selector/name. Please refine the selector (you may include "name" for rename).',
+            matches=preview,
+            count=len(candidates),
+        )
     return candidates[0]
 
-# ---- Request-building hooks (REQUIRED) -------------------------------------
-# Modules MUST provide the following callables:
-#   make_create_request(collection_path, desired) -> (path, payload)
-#   make_update_request(collection_path, obj_id, payload) -> (path, payload)
-#   make_delete_request(collection_path, obj_id) -> (path, payload|None)
 
-
-def ensure_idempotent_state(module,
+def ensure_idempotent_state(
+    module,
     collection_path,
     selector,
     desired_object,
@@ -67,16 +142,15 @@ def ensure_idempotent_state(module,
     make_create_request,
     make_update_request,
     make_delete_request,
-    extract_keys=("data","list","sites","items"),
+    extract_keys=("data", "list", "sites", "items"),
     page_size=100,
     readonly_keys=READONLY_KEYS,
-    ):
+):
     """Generic idempotent state handler with mandatory request builders.
     The module retains full control on URL and payload shapes via hooks.
     - selector: mapping of business keys (may include 'name' to support rename).
     - desired_object: dict under 'object' (must include 'name' when creating).
-    - state: 'present'|'absent'.
-
+    - state: 'present' | 'absent'.
     Returns a dict: {changed: bool, diff: dict|None, result: dict|None, current: dict|None}
     """
     selector = prune_unset(selector or {})
@@ -87,28 +161,43 @@ def ensure_idempotent_state(module,
 
     current = find_unique_or_fail(module, collection_path, selector, name, page_size=page_size, extract_keys=extract_keys)
 
+    # -- ABSENT (delete) ------------------------------------------------------
     if state == 'absent':
         if not current:
             return {"changed": False, "diff": None, "result": None, "current": None}
-        # For delete, show the FULL current object in diff.before (unfiltered), after={}
+
+        # show FULL current object in diff.before, after={}
         diff_struct = {"before": current, "after": {}}
         if module.check_mode:
             return {"changed": True, "diff": diff_struct, "result": current, "current": current}
+
         obj_id = current.get(id_key)
         del_path, del_payload = make_delete_request(collection_path, obj_id)
-        delete_json(module, del_path, payload=del_payload)
-        return {"changed": True, "diff": diff_struct, "result": None, "current": current}
+        deleted = delete_json(module, del_path, payload=del_payload)
 
-    # state == 'present'
+        # Vérif sémantique Huawei (200 + errcode != 0, ou batch fail)
+        _maybe_fail_on_api_semantic_error(module, 'delete', deleted)
+
+        return {"changed": True, "diff": diff_struct, "result": strip_readonly(deleted, readonly_keys), "current": current}
+
+    # -- PRESENT (create or update) -------------------------------------------
     if not current:
+        # CREATE
         if module.check_mode:
             return {"changed": True, "diff": {"before": {}, "after": desired}, "result": None, "current": None}
+
         create_path, create_payload = make_create_request(collection_path, desired)
         created = post_json(module, create_path, payload=create_payload)
+
+        # Vérif sémantique Huawei (batch success/fail, ou errcode != 0)
+        _maybe_fail_on_api_semantic_error(module, 'create', created)
+
         return {"changed": True, "diff": {"before": {}, "after": desired}, "result": strip_readonly(created, readonly_keys), "current": None}
 
+    # UPDATE (object exists)
     current_stripped = strip_readonly(current, readonly_keys)
-    # compute structured before/after diff limited to desired keys
+
+    # Diff sur les seules clés fournies par l'utilisateur
     diff_struct = build_before_after(current_stripped, desired)
     if not diff_struct:
         return {"changed": False, "diff": None, "result": current_stripped, "current": current}
@@ -116,42 +205,13 @@ def ensure_idempotent_state(module,
     if module.check_mode:
         return {"changed": True, "diff": diff_struct, "result": current_stripped, "current": current}
 
+    # Fusion "current ∪ desired" (desired gagne)
     payload = deep_merge(current_stripped, desired)
     obj_id = current.get(id_key)
     upd_path, upd_payload = make_update_request(collection_path, obj_id, payload)
     updated = put_json(module, upd_path, payload=upd_payload)
+
+    # Vérif sémantique Huawei (batch success/fail, ou errcode != 0)
+    _maybe_fail_on_api_semantic_error(module, 'update', updated)
+
     return {"changed": True, "diff": diff_struct, "result": strip_readonly(updated, readonly_keys), "current": current}
-
-def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
-    """Collect all matching items given a selector or (when selector is empty) a name fallback.
-    - If selector is provided: match items where all selector[k] == item[k] (including 'name' if provided).
-    - Else if name_fallback is provided: match items with item['name'] == name_fallback.
-    Returns a list of matching items (could be empty or multiple).
-    """
-    selector = selector or {}
-    base_filters = {}
-    if not selector and name_fallback:
-        base_filters['name'] = name_fallback
-    matches = []
-    for it in iter_paged(module, collection_path, base_filters=base_filters, page_size=page_size, extract_keys=extract_keys):
-        if selector:
-            if all(it.get(k) == v for k, v in selector.items()):
-                matches.append(it)
-        elif name_fallback and it.get('name') == name_fallback:
-            matches.append(it)
-    return matches
-
-
-def find_unique_or_fail(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data","list","sites","items")):
-    """Return a unique match or fail if multiple are found; returns None if no match.
-    Allows 'name' inside selector for rename scenarios.
-    """
-    candidates = find_candidates(module, collection_path, selector, name_fallback, page_size=page_size, extract_keys=extract_keys)
-    if not candidates:
-        return None
-    if len(candidates) > 1:
-        preview = []
-        for it in candidates[:5]:
-            preview.append({k: it.get(k) for k in ('id','name','city','timezone') if k in it})
-        module.fail_json(msg='Multiple resources match the provided selector/name. Please refine the selector (you may include "name" for rename).', matches=preview, count=len(candidates))
-    return candidates[0]

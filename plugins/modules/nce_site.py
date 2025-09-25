@@ -74,9 +74,22 @@ options:
         description: Whether the site is isolated.
         type: bool
       type:
-        description: Device role types hosted in this site (e.g., AP). REQUIRED on create.
+        description:
+          - Device role types hosted in this site. REQUIRED on create.
+          - Allowed values (Huawei NCE): C(AP), C(AR), C(LSW), C(FW), C(AC), C(ONU), C(OLT), C(TianGuan), C(NE).
+          - Note: C(LSW) is the expected value for LAN Switch (do not use "SW").
         type: list
         elements: str
+        choices:
+          - AP
+          - AR
+          - LSW
+          - FW
+          - AC
+          - ONU
+          - OLT
+          - TianGuan
+          - NE
       email:
         description: Contact email.
         type: str
@@ -106,10 +119,10 @@ EXAMPLES = r"""
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
     validate_certs: false
-    selector: {}          # business keys if needed; don't include "name" except for rename
+    selector: {}  # business keys if needed; don't include "name" except for rename
     object:
       name: "Site-CD60-Beauvais"
-      type: ["AP"]        # REQUIRED on create by Huawei API
+      type: ["AP", "LSW"]  # REQUIRED on create; allowed: AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE
       southAccName: "Public Default South Access"
       address: "1 Rue de la Préfecture"
       latitude: "49.4321"
@@ -117,7 +130,7 @@ EXAMPLES = r"""
       contact: "David"
       tag: ["abcd"]
       isolated: false
-      email: "xxx@xxx.xxx"
+      email: "ops@example.org"
       phone: "15277431823"
       postcode: "60000"
       siteTag: ""
@@ -128,11 +141,11 @@ EXAMPLES = r"""
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
     selector:
-      name: "Old-Site-Name"    # allowed in selector ONLY for rename
+      name: "Old-Site-Name"  # allowed in selector ONLY for rename
     object:
       name: "New-Site-Name"
       description: "Updated description"
-      longtitude: "2.0833"     # historical misspelling still accepted by API
+      longtitude: "2.0833"   # historical misspelling still accepted by API
 
 - name: Remove a site by name
   cd60_nce_site:
@@ -171,7 +184,7 @@ API_COLLECTION = "/controller/campus/v3/sites"
 def _make_create_request(collection_path, desired):
     # NCE sites require a batch wrapper even for single create
     # NOTE: Huawei API requires 'type' on create (list[str]); if not provided,
-    # the API will return an error.
+    # the API will return an error (handled centrally in nce_resource).
     return (collection_path, {"sites": [desired]})
 
 def _make_update_request(collection_path, obj_id, payload):
@@ -203,7 +216,14 @@ def run_module():
                 contact=dict(type="str"),
                 tag=dict(type="list", elements="str"),
                 isolated=dict(type="bool"),
-                type=dict(type="list", elements="str"),
+                # Validate each item against Huawei's allowed device types for NCE sites
+                type=dict(
+                    type="list",
+                    elements="str",
+                    choices=[
+                        "AP", "AR", "LSW", "FW", "AC", "ONU", "OLT", "TianGuan", "NE"
+                    ],
+                ),
                 email=dict(type="str"),
                 phone=dict(type="str"),
                 postcode=dict(type="str"),
@@ -232,7 +252,6 @@ def run_module():
         make_delete_request=_make_delete_request,
         extract_keys=("data", "list", "sites", "items"),
     )
-
     # emit_result() already exits
     emit_result(module, result, resource_key='site')
 
