@@ -154,7 +154,7 @@
       - (site_after_create.postcode | default('')) == test_postcode1
       - (site_after_create.siteTag | default('')) == test_siteTag1
       - (site_after_create.type | default([]) | sort) == (test_type_initial | sort)
-  fail_msg: "Created site mismatch: {{ site_after_create }}"
+    fail_msg: "Created site mismatch: {{ site_after_create }}"
 
 # Idempotence création
 - name: "Create again (idempotent, same full payload)"
@@ -237,7 +237,7 @@
       - (site_after_update.postcode | default('')) == test_postcode2
       - (site_after_update.siteTag | default('')) == test_siteTag2
       - (site_after_update.type | default([]) | sort) == (test_type_updated | sort)
-  fail_msg: "Updated site mismatch: {{ site_after_update }}"
+    fail_msg: "Updated site mismatch: {{ site_after_update }}"
 
 # Idempotence après update
 - name: "Run again with same updated payload (idempotent)"
@@ -302,7 +302,7 @@
       - (site_after_clear.phone | default('')) == ''
       - (site_after_clear.postcode | default('')) == ''
       - (site_after_clear.tag | default([])) == []
-  fail_msg: "Clear mismatch: {{ site_after_clear }}"
+    fail_msg: "Clear mismatch: {{ site_after_clear }}"
 
 # --- Check-mode pour changement détecté
 - name: "Check-mode update (should report changed but not apply)"
@@ -371,7 +371,7 @@
       - (looked_site[0].phone       | default('')) == ''
       - (looked_site[0].postcode    | default('')) == ''
       - (looked_site[0].tag         | default([])) == []
-  fail_msg: "Lookup mismatch: {{ looked_site }}"
+    fail_msg: "Lookup mismatch: {{ looked_site }}"
 
 # --- Suppression et idempotence suppression
 - name: "Delete site (absent)"

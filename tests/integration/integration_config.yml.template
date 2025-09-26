@@ -2,7 +2,7 @@
 # Fichier généré: tests/integration/integration_config.yml
 # ATTENTION: ne pas commiter, contient des secrets
 
-nce_base_uri: "${NCE_BASE_URI:-https://weu.naas.huawei.com:18002}"
+nce_base_uri: "https://weu.naas.huawei.com:18002"
 nce_username: "${NCE_USERNAME}"
 nce_password: "${NCE_PASSWORD}"
-nce_validate_certs: ${NCE_VALIDATE_CERTS:-false}
+nce_validate_certs: false
