@@ -3,8 +3,7 @@
 # GNU General Public License v3.0+
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
-
-DOCUMENTATION = r"""
+DOCUMENTATION = r""" 
 module: cd60_nce_site
 short_description: Manage Huawei iMaster NCE-Campus sites (tenant view)
 version_added: "1.0.0"
@@ -110,19 +109,26 @@ options:
     type: str
     choices: [present, absent]
     default: present
+  ordered_lists:
+    description:
+      - Optional list of dotted paths inside C(object) which must be treated as ORDERED during idempotence comparison.
+      - By default, all lists are UNORDERED (order-insensitive). Use this to make order significant for specific lists.
+      - Examples (for this module): C(tag), C(type)
+    type: list
+    elements: str
 author:
   - cd60.nce
 """
-EXAMPLES = r"""
+EXAMPLES = r""" 
 - name: Ensure a site is present (create if missing) with required 'type' for create
   cd60_nce_site:
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
     validate_certs: false
-    selector: {}  # business keys if needed; don't include "name" except for rename
+    selector: {} # business keys if needed; don't include "name" except for rename
     object:
       name: "Site-CD60-Beauvais"
-      type: ["AP", "LSW"]  # REQUIRED on create; allowed: AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE
+      type: ["AP", "LSW"] # REQUIRED on create; allowed: AP, AR, LSW, FW, AC, ONU, OLT, TianGuan, NE
       southAccName: "Public Default South Access"
       address: "1 Rue de la Préfecture"
       latitude: "49.4321"
@@ -141,21 +147,22 @@ EXAMPLES = r"""
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
     selector:
-      name: "Old-Site-Name"  # allowed in selector ONLY for rename
+      name: "Old-Site-Name" # allowed in selector ONLY for rename
     object:
       name: "New-Site-Name"
       description: "Updated description"
-      longtitude: "2.0833"   # historical misspelling still accepted by API
+      longtitude: "2.0833" # historical misspelling still accepted by API
 
-- name: Remove a site by name
+- name: Consider 'tag' list as ORDERED (order matters)
   cd60_nce_site:
     token: "{{ nce_token }}"
     base_uri: "https://weu.naas.huawei.com:18002"
+    ordered_lists: ["tag"]          # <---- order is now significant for 'tag'
     object:
-      name: "Site-CD60-Beauvais"
-    state: absent
+      name: "MySite"
+      tag: ["alpha", "beta", "gamma"]
 """
-RETURN = r"""
+RETURN = r""" 
 changed:
   description: Whether any change was made.
   type: bool
@@ -169,7 +176,6 @@ site:
   description: The resulting site payload returned by NCE (readonly fields may be omitted).
   type: dict
 """
-
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
     emit_result
@@ -177,7 +183,6 @@ from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
 from ansible_collections.cd60.nce.plugins.module_utils.nce_resource import (
     ensure_idempotent_state
 )
-
 API_COLLECTION = "/controller/campus/v3/sites"
 
 # Module-specific request builders (URLs + payloads)
@@ -232,14 +237,12 @@ def run_module():
             ),
         ),
         state=dict(type="str", choices=["present", "absent"], default="present"),
+        ordered_lists=dict(type="list", elements="str", default=[]),
     )
-
     module = AnsibleModule(argument_spec=argument_spec, supports_check_mode=True)
-
     state = module.params["state"]
     raw_selector = module.params.get("selector") or {}
     raw_object = module.params.get("object") or {}
-
     result = ensure_idempotent_state(
         module,
         API_COLLECTION,
@@ -251,12 +254,12 @@ def run_module():
         make_update_request=_make_update_request,
         make_delete_request=_make_delete_request,
         extract_keys=("data", "list", "sites", "items"),
+        ordered_list_paths=module.params.get("ordered_lists") or [],
     )
     # emit_result() already exits
     emit_result(module, result, resource_key='site')
 
 def main():
     run_module()
-
 if __name__ == "__main__":
     main()

@@ -2,7 +2,6 @@
 # Resource discovery & idempotency helpers (generic)
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
-
 from ansible_collections.cd60.nce.plugins.module_utils.nce_http import iter_paged
 from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
     get_json, post_json, put_json, delete_json
@@ -10,7 +9,6 @@ from ansible_collections.cd60.nce.plugins.module_utils.nce_http import (
 from ansible_collections.cd60.nce.plugins.module_utils.nce_utils import (
     prune_unset, strip_readonly, deep_merge, subset_diff, build_before_after, READONLY_KEYS
 )
-
 
 def _build_batch_error_details(fail_list):
     """Construit une liste de messages lisibles depuis un tableau fail[]."""
@@ -33,18 +31,16 @@ def _build_batch_error_details(fail_list):
                 details.append(f"{msg}{suffix}")
     return details
 
-
 def _maybe_fail_on_api_semantic_error(module, operation, response):
     """
     Certains endpoints Huawei renvoient HTTP 200 même en cas d'échec métier.
     Cette routine détecte :
-      - Réponses 'batch-like' {success:[], fail:[]} -> échec si fail non vide OU success vide.
-      - Réponses 'non-batch' avec errcode présent et != '0' -> échec.
+    - Réponses 'batch-like' {success:[], fail:[]} -> échec si fail non vide OU success vide.
+    - Réponses 'non-batch' avec errcode présent et != '0' -> échec.
     Si une condition d'échec est détectée, on appelle module.fail_json(...).
     """
     if not isinstance(response, dict):
         return
-
     # 1) Cas batch: presence de success/fail
     has_success = isinstance(response.get('success'), list)
     has_fail = isinstance(response.get('fail'), list)
@@ -58,7 +54,6 @@ def _maybe_fail_on_api_semantic_error(module, operation, response):
                 msg += ": " + "; ".join(details)
             module.fail_json(msg=msg, response=response, changed=False)
         return  # batch ok -> rien à faire
-
     # 2) Cas non-batch: errcode présent et non '0'
     if 'errcode' in response:
         try:
@@ -73,7 +68,6 @@ def _maybe_fail_on_api_semantic_error(module, operation, response):
                 changed=False,
             )
 
-
 def find_by_selector_or_name(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
     """Find an object by selector (preferred) or by name (fallback), obeying pagination.
     selector: mapping of business keys (may include 'name' for rename).
@@ -82,7 +76,6 @@ def find_by_selector_or_name(module, collection_path, selector, name_fallback, p
     base_filters = {}
     if not selector and name_fallback:
         base_filters["name"] = name_fallback
-
     for it in iter_paged(module, collection_path, base_filters=base_filters, page_size=page_size, extract_keys=extract_keys):
         if selector:
             if all(it.get(k) == v for k, v in selector.items()):
@@ -90,7 +83,6 @@ def find_by_selector_or_name(module, collection_path, selector, name_fallback, p
         elif name_fallback and it.get("name") == name_fallback:
             return it
     return None
-
 
 def find_candidates(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
     """Collect all matching items given a selector or (when selector is empty) a name fallback.
@@ -102,7 +94,6 @@ def find_candidates(module, collection_path, selector, name_fallback, page_size=
     base_filters = {}
     if not selector and name_fallback:
         base_filters['name'] = name_fallback
-
     matches = []
     for it in iter_paged(module, collection_path, base_filters=base_filters, page_size=page_size, extract_keys=extract_keys):
         if selector:
@@ -111,7 +102,6 @@ def find_candidates(module, collection_path, selector, name_fallback, page_size=
         elif name_fallback and it.get('name') == name_fallback:
             matches.append(it)
     return matches
-
 
 def find_unique_or_fail(module, collection_path, selector, name_fallback, page_size=100, extract_keys=("data", "list", "sites", "items")):
     """Return a unique match or fail if multiple are found; returns None if no match.
@@ -131,7 +121,6 @@ def find_unique_or_fail(module, collection_path, selector, name_fallback, page_s
         )
     return candidates[0]
 
-
 def ensure_idempotent_state(
     module,
     collection_path,
@@ -145,12 +134,15 @@ def ensure_idempotent_state(
     extract_keys=("data", "list", "sites", "items"),
     page_size=100,
     readonly_keys=READONLY_KEYS,
+    ordered_list_paths=None,
 ):
     """Generic idempotent state handler with mandatory request builders.
     The module retains full control on URL and payload shapes via hooks.
     - selector: mapping of business keys (may include 'name' to support rename).
     - desired_object: dict under 'object' (must include 'name' when creating).
     - state: 'present' | 'absent'.
+    - ordered_list_paths: iterable of dotted paths (from the root of the resource object) which must be treated
+      as ORDERED. Any other list is UNORDERED by default (order-insensitive comparison).
     Returns a dict: {changed: bool, diff: dict|None, result: dict|None, current: dict|None}
     """
     selector = prune_unset(selector or {})
@@ -161,23 +153,19 @@ def ensure_idempotent_state(
 
     current = find_unique_or_fail(module, collection_path, selector, name, page_size=page_size, extract_keys=extract_keys)
 
-    # -- ABSENT (delete) ------------------------------------------------------
+    # -- ABSENT (delete) -------------------------------------------------------
     if state == 'absent':
         if not current:
             return {"changed": False, "diff": None, "result": None, "current": None}
-
         # show FULL current object in diff.before, after={}
         diff_struct = {"before": current, "after": {}}
         if module.check_mode:
             return {"changed": True, "diff": diff_struct, "result": current, "current": current}
-
         obj_id = current.get(id_key)
         del_path, del_payload = make_delete_request(collection_path, obj_id)
         deleted = delete_json(module, del_path, payload=del_payload)
-
         # Vérif sémantique Huawei (200 + errcode != 0, ou batch fail)
         _maybe_fail_on_api_semantic_error(module, 'delete', deleted)
-
         return {"changed": True, "diff": diff_struct, "result": strip_readonly(deleted, readonly_keys), "current": current}
 
     # -- PRESENT (create or update) -------------------------------------------
@@ -185,23 +173,18 @@ def ensure_idempotent_state(
         # CREATE
         if module.check_mode:
             return {"changed": True, "diff": {"before": {}, "after": desired}, "result": None, "current": None}
-
         create_path, create_payload = make_create_request(collection_path, desired)
         created = post_json(module, create_path, payload=create_payload)
-
         # Vérif sémantique Huawei (batch success/fail, ou errcode != 0)
         _maybe_fail_on_api_semantic_error(module, 'create', created)
-
         return {"changed": True, "diff": {"before": {}, "after": desired}, "result": strip_readonly(created, readonly_keys), "current": None}
 
     # UPDATE (object exists)
     current_stripped = strip_readonly(current, readonly_keys)
-
-    # Diff sur les seules clés fournies par l'utilisateur
-    diff_struct = build_before_after(current_stripped, desired)
+    # Diff sur les seules clés fournies par l'utilisateur (avec listes unordered par défaut)
+    diff_struct = build_before_after(current_stripped, desired, ordered_list_paths=ordered_list_paths)
     if not diff_struct:
         return {"changed": False, "diff": None, "result": current_stripped, "current": current}
-
     if module.check_mode:
         return {"changed": True, "diff": diff_struct, "result": current_stripped, "current": current}
 
@@ -210,8 +193,5 @@ def ensure_idempotent_state(
     obj_id = current.get(id_key)
     upd_path, upd_payload = make_update_request(collection_path, obj_id, payload)
     updated = put_json(module, upd_path, payload=upd_payload)
-
     # Vérif sémantique Huawei (batch success/fail, ou errcode != 0)
     _maybe_fail_on_api_semantic_error(module, 'update', updated)
-
-    return {"changed": True, "diff": diff_struct, "result": strip_readonly(updated, readonly_keys), "current": current}

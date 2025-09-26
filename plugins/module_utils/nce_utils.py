@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, division, print_function
 __metaclass__ = type
+import json
 
 # Keys that should never be sent back to the API during updates
 READONLY_KEYS = {
@@ -48,42 +49,77 @@ def deep_merge(base, overlay):
     # lists & scalars -> overlay wins
     return deepcopy(overlay)
 
-def _deep_copy_for_compare(x):
-    if isinstance(x, list):
-        return [_deep_copy_for_compare(v) for v in x]
-    if isinstance(x, dict):
-        return {k: _deep_copy_for_compare(v) for k, v in x.items()}
-    return x
+def _canon_key(obj):
+    """
+    Build a deterministic sort key for normalized elements (scalars, dicts, lists).
+    Uses JSON dumps with sorted keys to be stable across runs.
+    """
+    try:
+        return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    except Exception:
+        return repr(obj)
 
-def subset_diff(current, desired_subset):
+def _is_list_ordered(path_tuple, ordered_list_paths):
+    """
+    Decide whether the list at 'path_tuple' should be treated as ordered.
+    path_tuple is a tuple of keys from the root of the resource object (e.g. ('interfaces', 'acl', 'rules')).
+    ordered_list_paths is an optional iterable of dotted strings like "interfaces.acl.rules".
+    """
+    if not ordered_list_paths:
+        return False
+    dotted = ".".join(path_tuple)
+    return dotted in set(ordered_list_paths)
+
+def normalize_for_compare(value, ordered_list_paths=None, path=()):
+    """
+    Recursively normalize a structure for idempotent comparison:
+    - dict: normalize each value.
+    - list: if path is ordered -> keep order after normalizing children;
+            else unordered -> normalize children then sort them by canonical key.
+    - scalars: returned as-is.
+    """
+    if isinstance(value, dict):
+        # Keep dicts as dicts but normalize children
+        return {k: normalize_for_compare(v, ordered_list_paths, path + (k,)) for k, v in value.items()}
+    if isinstance(value, list):
+        normalized_items = [normalize_for_compare(v, ordered_list_paths, path) for v in value]
+        if _is_list_ordered(path, ordered_list_paths):
+            return normalized_items  # order preserved
+        # unordered by default -> sort by canonical key
+        return sorted(normalized_items, key=_canon_key)
+    return value
+
+def subset_diff(current, desired_subset, *, ordered_list_paths=None, path=()):
     """Compute differences only for keys explicitly provided by user (desired_subset).
     Returns a structure of the *desired* values where a difference exists, or None."""
     if isinstance(desired_subset, dict):
         diff = {}
         cur = current or {}
         for k, v in desired_subset.items():
-            sub = subset_diff(cur.get(k), v)
+            sub = subset_diff(cur.get(k), v, ordered_list_paths=ordered_list_paths, path=path + (k,))
             if sub is not None:
                 diff[k] = sub
         return diff if diff else None
     if isinstance(desired_subset, list):
-        return desired_subset if _deep_copy_for_compare(current) != _deep_copy_for_compare(desired_subset) else None
+        cur_norm = normalize_for_compare(current, ordered_list_paths, path)
+        des_norm = normalize_for_compare(desired_subset, ordered_list_paths, path)
+        return desired_subset if cur_norm != des_norm else None
     # scalars
     return desired_subset if current != desired_subset else None
 
-def build_before_after(current, desired_subset):
+def build_before_after(current, desired_subset, *, ordered_list_paths=None, path=()):
     """Build a diff structure with explicit 'before' and 'after' restricted to
     keys the user provided in desired_subset, and only for changed values.
     Returns None if no change.
     """
-    def _helper(cur, des):
+    def _helper(cur, des, pth):
         # returns (before, after) or (None, None) if no change
         if isinstance(des, dict):
             b, a = {}, {}
             any_change = False
             cur = cur or {}
             for k, v in des.items():
-                cb, ca = _helper(cur.get(k), v)
+                cb, ca = _helper(cur.get(k), v, pth + (k,))
                 if cb is not None or ca is not None:
                     b[k] = cb
                     a[k] = ca
@@ -92,15 +128,17 @@ def build_before_after(current, desired_subset):
                 return (None, None)
             return (b, a)
         if isinstance(des, list):
-            if _deep_copy_for_compare(cur) != _deep_copy_for_compare(des):
+            cur_norm = normalize_for_compare(cur, ordered_list_paths, pth)
+            des_norm = normalize_for_compare(des, ordered_list_paths, pth)
+            if cur_norm != des_norm:
+                # Show actual before/after values (not normalized) for readability
                 return (cur, des)
             return (None, None)
         # scalars
         if cur != des:
             return (cur, des)
         return (None, None)
-
-    before, after = _helper(current, desired_subset)
+    before, after = _helper(current, desired_subset, path)
     if before is None and after is None:
         return None
     return {"before": before if before is not None else {}, "after": after if after is not None else {}}
