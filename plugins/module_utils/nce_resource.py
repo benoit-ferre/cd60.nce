@@ -195,3 +195,5 @@ def ensure_idempotent_state(
     updated = put_json(module, upd_path, payload=upd_payload)
     # Vérif sémantique Huawei (batch success/fail, ou errcode != 0)
     _maybe_fail_on_api_semantic_error(module, 'update', updated)
+
+    return {"changed": True, "diff": diff_struct, "result": strip_readonly(updated, readonly_keys), "current": current}

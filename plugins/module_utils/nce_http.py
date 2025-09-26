@@ -32,6 +32,40 @@ def _parse_json_safely(module, data_bytes):
         except Exception:
             return {"raw": str(data_bytes)}
 
+def _extract_err_details(body_obj):
+    """
+    Extrait (errcode, errmsg) des réponses JSON d'erreur Huawei/NCE.
+    Recherche 'errmsg' et 'errcode' d'abord, puis d'autres champs usuels.
+    """
+    code = None
+    msg = None
+    if isinstance(body_obj, dict):
+        # errcode/errmsg (NCE)
+        if 'errcode' in body_obj:
+            try:
+                code = str(body_obj.get('errcode'))
+            except Exception:
+                code = body_obj.get('errcode')
+        for k in ('errmsg', 'message', 'msg', 'description', 'desc'):
+            if k in body_obj and isinstance(body_obj[k], (str, int)):
+                msg = str(body_obj[k])
+                break
+        # parfois 'error' est un dict qui porte le message
+        if msg is None and isinstance(body_obj.get('error'), dict):
+            for k in ('message', 'msg', 'description', 'desc'):
+                if k in body_obj['error'] and isinstance(body_obj['error'][k], (str, int)):
+                    msg = str(body_obj['error'][k])
+                    break
+        # parfois 'errors' est une liste d'objets avec 'message'
+        if msg is None and isinstance(body_obj.get('errors'), list) and body_obj['errors']:
+            first = body_obj['errors'][0]
+            if isinstance(first, dict):
+                for k in ('message', 'msg', 'description', 'desc'):
+                    if k in first and isinstance(first[k], (str, int)):
+                        msg = str(first[k])
+                        break
+    return code, msg
+
 def _fail_from_http_error(module, e, url, method, payload=None):
     body_txt = None
     body_obj = None
@@ -45,7 +79,23 @@ def _fail_from_http_error(module, e, url, method, payload=None):
     except Exception:
         body_txt = None
         body_obj = None
-    msg = "%s %s -> HTTP %s" % (method, url, getattr(e, 'code', 'ERR'))
+
+    status = getattr(e, 'code', 'ERR')
+    msg = "%s %s -> HTTP %s" % (method, url, status)
+
+    # -> NEW: enrichir le message avec errcode/errmsg quand dispo
+    errcode = None
+    errmsg = None
+    if isinstance(body_obj, dict):
+        errcode, errmsg = _extract_err_details(body_obj)
+
+    if errmsg and errcode:
+        msg += ": %s (errcode=%s)" % (errmsg, errcode)
+    elif errmsg:
+        msg += ": %s" % (errmsg,)
+    elif errcode:
+        msg += " (errcode=%s)" % (errcode,)
+
     kwargs = {
         'status': getattr(e, 'code', None),
         'method': method,
@@ -53,15 +103,12 @@ def _fail_from_http_error(module, e, url, method, payload=None):
     }
     if body_obj is not None:
         kwargs['response'] = body_obj
-        if isinstance(body_obj, dict):
-            for k in ('message', 'msg', 'error', 'description', 'desc'):
-                if k in body_obj and isinstance(body_obj[k], (str, int)):
-                    msg += ": %s" % body_obj[k]
-                    break
     elif body_txt:
         kwargs['response_text'] = body_txt
+
     if payload is not None:
         kwargs['request_payload'] = payload
+
     module.fail_json(msg=msg, **kwargs)
 
 def get_json(module, path, params=None):
