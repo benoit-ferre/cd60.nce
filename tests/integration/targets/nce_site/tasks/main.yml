@@ -17,7 +17,7 @@
     test_site_old_name: "{{ lookup('env','NCE_TEST_SITE_OLD') | default('CD60-Integration-Site-Temp', true) }}"
     test_site_new_name: "{{ lookup('env','NCE_TEST_SITE_NEW') | default('CD60-Integration-Site', true) }}"
 
-    test_type_initial: "{{ (lookup('env','NCE_TEST_SITE_TYPE1') | default('AP,SW', true)).split(',') }}"
+    test_type_initial: "{{ (lookup('env','NCE_TEST_SITE_TYPE1') | default('AP,LSW', true)).split(',') }}"
     test_type_updated: "{{ (lookup('env','NCE_TEST_SITE_TYPE2') | default('AP', true)).split(',') }}"
 
     test_desc1: "{{ lookup('env','NCE_TEST_SITE_DESC1') | default('Initial description', true) }}"
