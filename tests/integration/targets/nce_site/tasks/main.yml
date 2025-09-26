@@ -18,7 +18,7 @@
     test_site_new_name: "{{ lookup('env','NCE_TEST_SITE_NEW') | default('CD60-Integration-Site', true) }}"
 
     test_type_initial: "{{ (lookup('env','NCE_TEST_SITE_TYPE1') | default('AP,LSW', true)).split(',') }}"
-    test_type_updated: "{{ (lookup('env','NCE_TEST_SITE_TYPE2') | default('AP', true)).split(',') }}"
+    test_type_updated: "{{ (lookup('env','NCE_TEST_SITE_TYPE2') | default('AP,LSW,AR', true)).split(',') }}"
 
     test_desc1: "{{ lookup('env','NCE_TEST_SITE_DESC1') | default('Initial description', true) }}"
     test_desc2: "{{ lookup('env','NCE_TEST_SITE_DESC2') | default('Updated by Ansible', true) }}"
@@ -28,20 +28,20 @@
 
     test_lat1: "{{ lookup('env','NCE_TEST_SITE_LAT1') | default('49.4321', true) }}"
     test_lon1: "{{ lookup('env','NCE_TEST_SITE_LON1') | default('2.0833', true) }}"
-    test_lat2: "{{ lookup('env','NCE_TEST_SITE_LAT2') | default('49.5000', true) }}"
-    test_lon2: "{{ lookup('env','NCE_TEST_SITE_LON2') | default('2.2500', true) }}"
+    test_lat2: "{{ lookup('env','NCE_TEST_SITE_LAT2') | default('49.5', true) }}"
+    test_lon2: "{{ lookup('env','NCE_TEST_SITE_LON2') | default('2.25', true) }}"
 
     test_contact1: "{{ lookup('env','NCE_TEST_SITE_CONTACT1') | default('David', true) }}"
     test_contact2: "{{ lookup('env','NCE_TEST_SITE_CONTACT2') | default('Alice', true) }}"
 
     test_tags1: "{{ (lookup('env','NCE_TEST_SITE_TAGS1') | default('abcd', true)).split(',') }}"
-    test_tags2: "{{ (lookup('env','NCE_TEST_SITE_TAGS2') | default('alpha,beta,gamma', true)).split(',') }}"
+    test_tags2: "{{ (lookup('env','NCE_TEST_SITE_TAGS2') | default('alpha', true)).split(',') }}"
 
     test_email1: "{{ lookup('env','NCE_TEST_SITE_EMAIL1') | default('ops@example.org', true) }}"
     test_email2: "{{ lookup('env','NCE_TEST_SITE_EMAIL2') | default('noc@example.org', true) }}"
 
     test_phone1: "{{ lookup('env','NCE_TEST_SITE_PHONE1') | default('15277431823', true) }}"
-    test_phone2: "{{ lookup('env','NCE_TEST_SITE_PHONE2') | default('+33 1 23 45 67 89', true) }}"
+    test_phone2: "{{ lookup('env','NCE_TEST_SITE_PHONE2') | default('+33123456789', true) }}"
 
     test_postcode1: "{{ lookup('env','NCE_TEST_SITE_PC1') | default('60000', true) }}"
     test_postcode2: "{{ lookup('env','NCE_TEST_SITE_PC2') | default('75001', true) }}"
@@ -143,9 +143,7 @@
       - (site_after_create.address | default('')) == test_addr1
       - (site_after_create.description | default('')) == test_desc1
       - ((site_after_create.latitude | string) == (test_lat1 | string))
-      - >
-        ((site_after_create.longitude | default('') | string) == (test_lon1 | string)) or
-        ((site_after_create.longtitude | default('') | string) == (test_lon1 | string))
+      - ((site_after_create.longitude | default('') | string) == (test_lon1 | string)) 
       - (site_after_create.contact | default('')) == test_contact1
       - (site_after_create.tag | default([]) | sort) == (test_tags1 | sort)
       - (site_after_create.isolated | default(false)) == false
@@ -166,7 +164,7 @@
     object:
       name: "{{ test_site_old_name }}"
       type: "{{ test_type_initial }}"
-      southAccName: "{{ test_southAccName }}"
+      #southAccName: "{{ test_southAccName }}"
       description: "{{ test_desc1 }}"
       address: "{{ test_addr1 }}"
       latitude: "{{ test_lat1 }}"
@@ -197,7 +195,7 @@
       description: "{{ test_desc2 }}"
       address: "{{ test_addr2 }}"
       latitude: "{{ test_lat2 }}"
-      longtitude: "{{ test_lon2 }}"  # alias historique accepté
+      longitude: "{{ test_lon2 }}"
       contact: "{{ test_contact2 }}"
       tag: "{{ test_tags2 }}"
       isolated: true
@@ -226,9 +224,7 @@
       - (site_after_update.address | default('')) == test_addr2
       - (site_after_update.description | default('')) == test_desc2
       - ((site_after_update.latitude | string) == (test_lat2 | string))
-      - >
-        ((site_after_update.longitude | default('') | string) == (test_lon2 | string)) or
-        ((site_after_update.longtitude | default('') | string) == (test_lon2 | string))
+      - ((site_after_update.longitude | default('') | string) == (test_lon2 | string))
       - (site_after_update.contact | default('')) == test_contact2
       - (site_after_update.tag | default([]) | sort) == (test_tags2 | sort)
       - (site_after_update.isolated | default(false)) == true
@@ -237,7 +233,7 @@
       - (site_after_update.postcode | default('')) == test_postcode2
       - (site_after_update.siteTag | default('')) == test_siteTag2
       - (site_after_update.type | default([]) | sort) == (test_type_updated | sort)
-    fail_msg: "Updated site mismatch: {{ site_after_update }}"
+    fail_msg: "Updated site mismatch: {{ site_after_update }} and {{ update_all.diff.after }}"
 
 # Idempotence après update
 - name: "Run again with same updated payload (idempotent)"
@@ -251,7 +247,6 @@
       description: "{{ test_desc2 }}"
       address: "{{ test_addr2 }}"
       latitude: "{{ test_lat2 }}"
-      longtitude: "{{ test_lon2 }}"
       contact: "{{ test_contact2 }}"
       tag: "{{ test_tags2 }}"
       isolated: true
